@@ -1,0 +1,20 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; background: #070a12; color: #eef4ff; }
+body { min-height: 100vh; }
+.shell { min-height: 100vh; padding: 32px; display: grid; place-items: center; background: radial-gradient(circle at 50% 0%, #112044 0, #070a12 44%); }
+.panel { width: min(980px, 100%); min-height: 720px; display: grid; grid-template-rows: auto 1fr auto; border: 1px solid #20335e; border-radius: 24px; background: rgba(9,14,27,.92); box-shadow: 0 24px 80px rgba(0,0,0,.45); overflow: hidden; }
+.topbar { display: flex; align-items: center; gap: 14px; padding: 20px 24px; border-bottom: 1px solid #1c2946; }
+.brandMark { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; background: #2f6df6; font-weight: 800; }
+.topbar h1 { margin: 0; font-size: 18px; letter-spacing: .12em; }
+.topbar p { margin: 2px 0 0; color: #91a2c7; font-size: 13px; }
+.status { margin-left: auto; color: #84efbd; font-size: 13px; }
+.chat { padding: 26px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.bubble { max-width: 76%; padding: 13px 16px; border-radius: 16px; line-height: 1.45; white-space: pre-wrap; }
+.bubble.assistant { align-self: flex-start; background: #111d36; border: 1px solid #20345d; }
+.bubble.user { align-self: flex-end; background: #2f6df6; }
+.composer { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 18px; border-top: 1px solid #1c2946; }
+.composer input { width: 100%; border: 1px solid #283a61; border-radius: 14px; padding: 14px 16px; background: #0b1324; color: #eef4ff; outline: none; }
+.composer input:focus { border-color: #4e83ff; }
+.composer button { border: 0; border-radius: 14px; padding: 0 20px; background: #2f6df6; color: white; font-weight: 700; cursor: pointer; }
+.composer button:disabled { opacity: .55; cursor: default; }
+@media (max-width: 640px) { .shell { padding: 0; } .panel { min-height: 100vh; border-radius: 0; border-left: 0; border-right: 0; } .bubble { max-width: 88%; } }
