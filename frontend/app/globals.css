@@ -43,7 +43,7 @@ button {
   display: grid;
   place-items: center;
   overflow: hidden;
-  padding: 18px;
+  padding: 0;
   isolation: isolate;
   background:
     radial-gradient(circle at 50% 25%, rgba(40, 133, 255, 0.18), transparent 30%),
@@ -74,16 +74,16 @@ button {
 }
 
 .panel {
-  width: min(1180px, 100%);
-  min-height: min(900px, calc(100svh - 36px));
-  height: calc(100svh - 36px);
-  max-height: 980px;
+  width: 100vw;
+  min-height: 100svh;
+  height: 100svh;
+  max-height: none;
   position: relative;
   display: grid;
   grid-template-rows: auto 1fr auto;
   overflow: hidden;
-  border: 1px solid rgba(120, 187, 255, 0.16);
-  border-radius: 30px;
+  border: 0;
+  border-radius: 0;
   background:
     linear-gradient(180deg, rgba(10, 18, 34, 0.86), rgba(4, 8, 16, 0.82)),
     radial-gradient(circle at 50% 45%, rgba(37, 121, 255, 0.08), transparent 44%);
@@ -173,9 +173,10 @@ button {
   min-height: 0;
   position: relative;
   display: grid;
-  grid-template-columns: minmax(180px, 0.65fr) minmax(340px, 1.7fr) minmax(180px, 0.65fr);
+  grid-template-columns: 1fr;
   align-items: center;
-  padding: 6px 24px 0;
+  justify-items: center;
+  padding: 0 18px;
   overflow: hidden;
 }
 
@@ -239,10 +240,10 @@ button {
 }
 
 .hologram {
-  width: min(520px, 100%);
-  height: min(70vh, 700px);
-  min-height: 470px;
-  max-height: 720px;
+  width: min(760px, 94vw);
+  height: min(76vh, 780px);
+  min-height: 520px;
+  max-height: 820px;
   position: relative;
   display: grid;
   place-items: center;
@@ -296,7 +297,7 @@ button {
 
 .holoSvg {
   width: auto;
-  height: 94%;
+  height: 98%;
   max-width: 100%;
   overflow: visible;
   z-index: 3;
