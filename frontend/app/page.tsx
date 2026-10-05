@@ -149,11 +149,6 @@ export default function Home() {
         </header>
 
         <section className="stage" aria-label="KERO dijital karakter alanı">
-          <aside className="sideInfo">
-            <strong>Canlı karakter</strong>
-            Nefes, baş, omuz ve gövde mikro hareketleri sürekli aktiftir.
-          </aside>
-
           <div className="avatarColumn">
             <div className="modePill">
               <i />
@@ -282,10 +277,6 @@ export default function Home() {
             </div>
           </div>
 
-          <aside className="sideInfo right">
-            <strong>Hareket sistemi</strong>
-            Dinleme, düşünme ve konuşma durumlarında jestler ayrı çalışır.
-          </aside>
         </section>
 
         <footer className="controlDock">
