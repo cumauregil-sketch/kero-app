@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
-  const backend = process.env.RAILWAY_SERVICE_KERO_API_URL ?? process.env.NEXT_PUBLIC_API_URL;
+  const rawBackend =
+    process.env.RAILWAY_SERVICE_KERO_API_URL ??
+    'kero-api-production.up.railway.app';
 
-  if (!backend) {
-    return NextResponse.json({ reply: 'Backend adresi bulunamadı.' }, { status: 500 });
-  }
+  const normalizedBackend =
+    rawBackend.startsWith('http://') || rawBackend.startsWith('https://')
+      ? rawBackend
+      : `https://${rawBackend}`;
+
+  const base = normalizedBackend.replace(/\/$/, '');
 
   try {
     const body = await request.json();
-    const base = backend.replace(/\/$/, '');
     const response = await fetch(`${base}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -19,7 +23,11 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
-  } catch {
-    return NextResponse.json({ reply: 'Backend bağlantısı kurulamadı.' }, { status: 502 });
+  } catch (error) {
+    console.error('KERO chat proxy error', error);
+    return NextResponse.json(
+      { reply: 'Backend bağlantısı kurulamadı.' },
+      { status: 502 },
+    );
   }
 }
