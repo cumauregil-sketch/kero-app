@@ -169,25 +169,35 @@ export default function Home() {
                 className="holoSvg"
                 viewBox="0 0 420 720"
                 role="img"
-                aria-label="KERO hareketli dijital insan hologramı"
+                aria-label="KERO gerçekçi premium dijital insan hologramı"
               >
                 <defs>
-                  <linearGradient id="bodyGlow" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#d8f5ff" stopOpacity="0.38" />
-                    <stop offset="42%" stopColor="#55cfff" stopOpacity="0.18" />
-                    <stop offset="100%" stopColor="#246bff" stopOpacity="0.08" />
+                  <linearGradient id="skinGlow" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#f1fbff" stopOpacity="0.34" />
+                    <stop offset="48%" stopColor="#73d9ff" stopOpacity="0.20" />
+                    <stop offset="100%" stopColor="#2c7cff" stopOpacity="0.08" />
+                  </linearGradient>
+                  <linearGradient id="bodyGlow" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#dff8ff" stopOpacity="0.28" />
+                    <stop offset="45%" stopColor="#64d0ff" stopOpacity="0.15" />
+                    <stop offset="100%" stopColor="#236fff" stopOpacity="0.05" />
                   </linearGradient>
                   <linearGradient id="softBodyGlow" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#7edfff" stopOpacity="0.18" />
-                    <stop offset="100%" stopColor="#1f6eff" stopOpacity="0.03" />
+                    <stop offset="0%" stopColor="#8be4ff" stopOpacity="0.16" />
+                    <stop offset="100%" stopColor="#226dff" stopOpacity="0.025" />
                   </linearGradient>
                   <linearGradient id="lineGlow" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#d9f7ff" stopOpacity="0.92" />
-                    <stop offset="52%" stopColor="#58caff" stopOpacity="0.72" />
-                    <stop offset="100%" stopColor="#2d76ff" stopOpacity="0.36" />
+                    <stop offset="0%" stopColor="#effcff" stopOpacity="0.92" />
+                    <stop offset="50%" stopColor="#78dcff" stopOpacity="0.68" />
+                    <stop offset="100%" stopColor="#3c85ff" stopOpacity="0.30" />
                   </linearGradient>
+                  <radialGradient id="faceShade" cx="50%" cy="38%" r="64%">
+                    <stop offset="0%" stopColor="#dff8ff" stopOpacity="0.16" />
+                    <stop offset="72%" stopColor="#57c7ff" stopOpacity="0.08" />
+                    <stop offset="100%" stopColor="#1c62ff" stopOpacity="0.01" />
+                  </radialGradient>
                   <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feGaussianBlur stdDeviation="2.2" result="blur" />
                     <feMerge>
                       <feMergeNode in="blur" />
                       <feMergeNode in="SourceGraphic" />
@@ -195,69 +205,65 @@ export default function Home() {
                   </filter>
                 </defs>
 
-                <g className="holoFigure">
+                <g className="holoFigure humanFigure">
                   <g className="headGroup">
+                    <path className="hairShape" d="M151 147c2-44 25-77 59-77 39 0 61 29 62 77-9-22-23-37-39-44-22-10-51-3-82 44Z" />
                     <path
-                      className="holoPart"
-                      d="M210 82c-43 0-70 32-70 78 0 35 10 71 31 91 12 12 25 18 39 18s27-6 39-18c21-20 31-56 31-91 0-46-27-78-70-78Z"
+                      className="skinPart faceShape"
+                      d="M210 89c-37 0-61 28-62 72-1 38 11 76 34 97 9 9 18 14 28 14s19-5 28-14c23-21 35-59 34-97-1-44-25-72-62-72Z"
                     />
-                    <path className="faceContour" d="M164 168c9-27 28-44 46-44s37 17 46 44" opacity=".36" />
-                    <path className="faceEye" d="M171 179c10-5 20-5 30 0M219 179c10-5 20-5 30 0" />
-                    <path className="faceContour" d="M210 184v26" opacity=".58" />
-                    <path className="faceMouth" d="M188 226c14 7 30 7 44 0" />
-                    <path className="faceContour" d="M179 245c19 12 43 12 62 0" opacity=".32" />
+                    <path className="earPart" d="M149 166c-11-5-14 7-10 23 3 13 9 22 17 20M271 166c11-5 14 7 10 23-3 13-9 22-17 20" />
+                    <path className="browLine" d="M169 171c10-6 22-7 33-2M218 169c11-5 23-4 33 2" />
+                    <path className="eyeLine" d="M170 184c9-5 20-5 29 0M221 184c9-5 20-5 29 0" />
+                    <path className="noseLine" d="M210 181c-1 13-2 24-1 31 4 3 8 4 12 3" />
+                    <path className="cheekLine" d="M165 202c8 12 17 18 27 21M255 202c-8 12-17 18-27 21" />
+                    <path className="faceMouth" d="M188 231c14 7 30 7 44 0" />
+                    <path className="jawLine" d="M175 244c10 15 22 23 35 23s25-8 35-23" />
                   </g>
 
-                  <path className="holoSoft" d="M182 260h56l9 42-37 34-37-34 9-42Z" />
+                  <path className="neckPart" d="M181 251c3 22 0 38-11 51 11 18 25 27 40 27s29-9 40-27c-11-13-14-29-11-51-9 10-19 16-29 16s-20-6-29-16Z" />
 
                   <path
-                    className="holoPart"
-                    d="M150 298c18-10 38-17 60-17s42 7 60 17l36 27 22 162-32 105H124L92 487l22-162 36-27Z"
+                    className="torsoPart"
+                    d="M166 296c-25 5-48 16-66 34-14 14-20 36-22 63l-8 133c-2 37 19 66 52 75 26 7 58 9 88 9s62-2 88-9c33-9 54-38 52-75l-8-133c-2-27-8-49-22-63-18-18-41-29-66-34-7 31-23 48-44 48s-37-17-44-48Z"
                   />
-
-                  <path
-                    className="holoSoft"
-                    d="M164 306c13 17 29 27 46 27s33-10 46-27l21 28-25 176h-84l-25-176 21-28Z"
-                  />
-
-                  <path className="chestTrace" d="M137 357c45 25 101 25 146 0" opacity=".42" />
-                  <path className="chestTrace" d="M155 399c34 18 76 18 110 0" opacity=".22" />
-                  <path className="chestTrace" d="M170 476h80" opacity=".2" />
-
-                  <circle className="coreOuter" cx="210" cy="386" r="28" strokeDasharray="7 8" />
-                  <circle className="coreOuter" cx="210" cy="386" r="20" strokeDasharray="3 6" opacity=".6" />
-                  <circle className="coreInner" cx="210" cy="386" r="6" />
+                  <path className="chestShade" d="M123 347c25 27 54 41 87 41s62-14 87-41c-5 63-11 126-13 189-18 8-43 12-74 12s-56-4-74-12c-2-63-8-126-13-189Z" />
+                  <path className="collarLine" d="M157 310c11 28 28 43 53 43s42-15 53-43" />
+                  <path className="chestTrace" d="M139 377c23 13 47 20 71 20s48-7 71-20" opacity=".26" />
+                  <path className="chestTrace" d="M153 430c18 9 37 14 57 14s39-5 57-14" opacity=".14" />
 
                   <g className="leftArm">
                     <path
-                      className="holoPart"
-                      d="M116 321c-25 13-39 38-47 76L48 516c-5 25 9 40 25 40 18 0 28-13 33-32l29-119 9-55-28-29Z"
+                      className="limbPart"
+                      d="M102 333c-20 13-31 34-35 61l-18 111c-4 25 6 41 24 44 18 2 31-11 35-33l18-108c4-28 2-53-7-69l-17-6Z"
                     />
                     <g className="leftForearm">
                       <path
-                        className="holoSoft"
-                        d="M76 505c-13 17-23 37-29 59-5 18 4 34 19 38 16 4 29-7 34-23l17-58-41-16Z"
+                        className="limbSoft"
+                        d="M73 518c-8 13-14 31-17 51l-6 38c-3 18 7 31 22 33 15 2 27-8 30-25l8-42c4-22 1-39-8-50l-29-5Z"
                       />
-                      <ellipse className="holoPart" cx="59" cy="610" rx="17" ry="26" />
+                      <path className="handPart" d="M52 606c-5 16-3 31 8 43 8 9 21 10 30 3 8-6 12-18 9-30l-6-26-41 10Z" />
+                      <path className="fingerLine" d="M58 620l-2 19M68 616l-1 25M79 615v24M89 618l2 17" />
                     </g>
                   </g>
 
                   <g className="rightArm">
                     <path
-                      className="holoPart"
-                      d="M304 321c25 13 39 38 47 76l21 119c5 25-9 40-25 40-18 0-28-13-33-32l-29-119-9-55 28-29Z"
+                      className="limbPart"
+                      d="M318 333c20 13 31 34 35 61l18 111c4 25-6 41-24 44-18 2-31-11-35-33l-18-108c-4-28-2-53 7-69l17-6Z"
                     />
                     <g className="rightForearm">
                       <path
-                        className="holoSoft"
-                        d="M344 505c13 17 23 37 29 59 5 18-4 34-19 38-16 4-29-7-34-23l-17-58 41-16Z"
+                        className="limbSoft"
+                        d="M347 518c8 13 14 31 17 51l6 38c3 18-7 31-22 33-15 2-27-8-30-25l-8-42c-4-22-1-39 8-50l29-5Z"
                       />
-                      <ellipse className="holoPart" cx="361" cy="610" rx="17" ry="26" />
+                      <path className="handPart" d="M368 606c5 16 3 31-8 43-8 9-21 10-30 3-8-6-12-18-9-30l6-26 41 10Z" />
+                      <path className="fingerLine" d="M362 620l2 19M352 616l1 25M341 615v24M331 618l-2 17" />
                     </g>
                   </g>
 
-                  <path className="holoSoft" d="M144 587h132l26 71H118l26-71Z" />
-                  <path className="chestTrace" d="M138 623h144" opacity=".2" />
+                  <path className="lowerBody" d="M128 584c23 10 50 15 82 15s59-5 82-15l18 75H110l18-75Z" />
+                  <path className="waistLine" d="M132 600c22 9 48 13 78 13s56-4 78-13" />
                 </g>
               </svg>
 
