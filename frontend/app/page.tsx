@@ -17,8 +17,10 @@ export default function Home() {
   const [videoFailed, setVideoFailed] = useState(false);
   const [speechBeat, setSpeechBeat] = useState(false);
   const [conversationMode, setConversationMode] = useState(false);
+  const [mouthFrame, setMouthFrame] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mouthVideoRef = useRef<HTMLVideoElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const recognitionRef = useRef<any>(null);
   const requestControllerRef = useRef<AbortController | null>(null);
@@ -61,9 +63,9 @@ export default function Home() {
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    const mouthVideo = mouthVideoRef.current;
 
-    video.playbackRate =
+    const playbackRate =
       avatarState === 'speaking'
         ? speechBeat
           ? 1.05
@@ -73,7 +75,61 @@ export default function Home() {
           : avatarState === 'thinking'
             ? 0.56
             : 0.38;
+
+    if (video) video.playbackRate = playbackRate;
+    if (mouthVideo) mouthVideo.playbackRate = playbackRate;
   }, [avatarState, speechBeat]);
+
+  useEffect(() => {
+    if (avatarState !== 'speaking') {
+      setMouthFrame(0);
+      return;
+    }
+
+    const pattern = [1, 3, 1, 2, 0, 2, 3, 1, 0, 2];
+    const delays = [72, 96, 84, 118, 76, 104, 88, 126, 78, 98];
+    let index = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const pulse = () => {
+      setMouthFrame(pattern[index % pattern.length]);
+      timer = setTimeout(pulse, delays[index % delays.length]);
+      index += 1;
+    };
+
+    pulse();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      setMouthFrame(0);
+    };
+  }, [avatarState]);
+
+  useEffect(() => {
+    if (avatarState !== 'speaking') return;
+
+    let animationFrame = 0;
+
+    const syncMouthVideo = () => {
+      const base = videoRef.current;
+      const mouth = mouthVideoRef.current;
+
+      if (base && mouth && Number.isFinite(base.currentTime)) {
+        if (Math.abs(mouth.currentTime - base.currentTime) > 0.055) {
+          mouth.currentTime = base.currentTime;
+        }
+
+        if (mouth.paused && !base.paused) {
+          void mouth.play().catch(() => undefined);
+        }
+      }
+
+      animationFrame = requestAnimationFrame(syncMouthVideo);
+    };
+
+    animationFrame = requestAnimationFrame(syncMouthVideo);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [avatarState]);
 
   function scheduleListening(delay = 280) {
     if (!conversationModeRef.current || busyRef.current) return;
@@ -111,21 +167,25 @@ export default function Home() {
 
     utterance.onstart = () => {
       setSpeechBeat(true);
+      setMouthFrame(2);
       setAvatarState('speaking');
     };
 
     utterance.onboundary = () => {
       setSpeechBeat((current) => !current);
+      setMouthFrame((current) => (current + 2) % 4);
     };
 
     utterance.onend = () => {
       setSpeechBeat(false);
+      setMouthFrame(0);
       setAvatarState('idle');
       scheduleListening(340);
     };
 
     utterance.onerror = () => {
       setSpeechBeat(false);
+      setMouthFrame(0);
       setAvatarState('idle');
       scheduleListening(340);
     };
@@ -166,7 +226,7 @@ export default function Home() {
 
       setMessages((current) => [...current, { role: 'assistant', content: reply }]);
       speakReply(reply);
-    } catch (error) {
+    } catch {
       if (controller.signal.aborted) {
         setAvatarState('idle');
         return;
@@ -223,6 +283,7 @@ export default function Home() {
 
     recognition.onstart = () => {
       setSpeechBeat(false);
+      setMouthFrame(0);
       setAvatarState('listening');
     };
 
@@ -288,6 +349,7 @@ export default function Home() {
     window.speechSynthesis?.cancel();
 
     setSpeechBeat(false);
+    setMouthFrame(0);
     setBusy(false);
     busyRef.current = false;
     setAvatarState('idle');
@@ -305,6 +367,7 @@ export default function Home() {
     if (avatarState === 'speaking') {
       window.speechSynthesis?.cancel();
       setSpeechBeat(false);
+      setMouthFrame(0);
       setAvatarState('idle');
     }
 
@@ -331,22 +394,45 @@ export default function Home() {
       <div className="cosmos" aria-hidden="true" />
 
       {!videoFailed ? (
-        <video
-          ref={videoRef}
-          className="keroMotion"
-          src={motionUrl}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          onCanPlay={(event) => {
-            setVideoFailed(false);
-            void event.currentTarget.play().catch(() => undefined);
-          }}
-          onError={() => setVideoFailed(true)}
-          aria-label="KERO hareketli dijital karakteri"
-        />
+        <>
+          <video
+            ref={videoRef}
+            className="keroMotion"
+            src={motionUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            onCanPlay={(event) => {
+              setVideoFailed(false);
+              void event.currentTarget.play().catch(() => undefined);
+
+              const mouthVideo = mouthVideoRef.current;
+              if (mouthVideo) {
+                mouthVideo.currentTime = event.currentTarget.currentTime;
+                void mouthVideo.play().catch(() => undefined);
+              }
+            }}
+            onError={() => setVideoFailed(true)}
+            aria-label="KERO hareketli dijital karakteri"
+          />
+
+          <div className={`mouthMask mouth-open-${mouthFrame}`} aria-hidden="true">
+            <video
+              ref={mouthVideoRef}
+              className="mouthVideo"
+              src={motionUrl}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="auto"
+              tabIndex={-1}
+            />
+            <span className="mouthDepth" />
+          </div>
+        </>
       ) : (
         <div className="fallbackHero" aria-hidden="true">
           <div className="fallbackGlow" />
