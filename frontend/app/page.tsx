@@ -20,7 +20,8 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
   const [voiceSupported, setVoiceSupported] = useState<boolean | null>(null);
-  const [showKeyboard, setShowKeyboard] = useState(false);\n  const [videoFailed, setVideoFailed] = useState(false);
+  const [showKeyboard, setShowKeyboard] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
