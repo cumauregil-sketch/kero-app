@@ -27,18 +27,20 @@ button,input{font:inherit}
 .responseCaption{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);z-index:8;width:min(720px,72vw);min-height:0;text-align:center;color:rgba(235,249,255,.9);font-size:13px;line-height:1.45;text-shadow:0 2px 18px rgba(0,0,0,.8);pointer-events:none;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 
 .controlLayer{position:absolute;left:0;right:0;bottom:0;z-index:12;display:grid;justify-items:center;gap:8px;padding:8px 14px 14px;background:linear-gradient(180deg,transparent,rgba(1,3,11,.22) 40%,rgba(1,3,11,.5))}
-.voiceDock{width:min(430px,46vw);height:58px;padding:0 12px;display:grid;grid-template-columns:42px 1fr 42px;align-items:center;border:1px solid rgba(101,165,255,.23);border-radius:30px;background:rgba(6,14,34,.48);backdrop-filter:blur(16px);box-shadow:0 0 28px rgba(26,86,196,.16),inset 0 1px 0 rgba(255,255,255,.05)}
+.voiceDock{width:min(430px,46vw);height:58px;padding:0 12px;display:grid;grid-template-columns:42px 1fr 42px;align-items:center;border:1px solid rgba(101,165,255,.23);border-radius:30px;background:rgba(6,14,34,.48);backdrop-filter:blur(16px);box-shadow:0 0 28px rgba(26,86,196,.16),inset 0 1px 0 rgba(255,255,255,.05);transition:border-color .25s ease,box-shadow .25s ease,background .25s ease}
+.conversation-live .voiceDock{border-color:rgba(104,214,255,.38);background:rgba(6,16,38,.58);box-shadow:0 0 34px rgba(40,129,255,.2),0 0 52px rgba(138,54,255,.12),inset 0 1px 0 rgba(255,255,255,.06)}
 .keyboardButton{justify-self:center;width:34px;height:34px;border:0;border-radius:50%;background:transparent;color:#d9ebff;font-size:17px;cursor:pointer;transition:background .2s ease,transform .2s ease,opacity .2s ease;opacity:.82}
 .keyboardButton:hover{background:rgba(80,142,255,.12);transform:translateY(-1px);opacity:1}
 .stateLight{justify-self:center;width:9px;height:9px;border-radius:50%;background:rgba(124,244,191,.7);box-shadow:0 0 12px rgba(124,244,191,.55);transition:all .25s ease}
+.conversation-live .stateLight{background:#73e9ff;box-shadow:0 0 16px rgba(79,199,255,.85)}
 .state-listening .stateLight{background:#68dcff;box-shadow:0 0 16px rgba(77,192,255,.95)}
 .state-thinking .stateLight{background:#ae73ff;box-shadow:0 0 16px rgba(166,82,255,.95);animation:statePulse 1.15s ease-in-out infinite}
 .state-speaking .stateLight{background:#79e7ff;box-shadow:0 0 18px rgba(79,192,255,.95);animation:statePulse .72s ease-in-out infinite}
 
-.micButton{justify-self:center;width:52px;height:52px;border-radius:50%;border:1px solid rgba(141,223,255,.72);display:grid;place-items:center;background:radial-gradient(circle at 50% 35%,rgba(83,207,255,.42),transparent 42%),linear-gradient(160deg,#174b8f,#0c1741 55%,#431375);box-shadow:0 0 0 6px rgba(66,111,255,.09),0 0 24px rgba(50,168,255,.56),0 0 38px rgba(140,58,255,.3),inset 0 0 16px rgba(255,255,255,.09);color:#fff;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease}
+.micButton{justify-self:center;width:52px;height:52px;border-radius:50%;border:1px solid rgba(141,223,255,.72);display:grid;place-items:center;background:radial-gradient(circle at 50% 35%,rgba(83,207,255,.42),transparent 42%),linear-gradient(160deg,#174b8f,#0c1741 55%,#431375);box-shadow:0 0 0 6px rgba(66,111,255,.09),0 0 24px rgba(50,168,255,.56),0 0 38px rgba(140,58,255,.3),inset 0 0 16px rgba(255,255,255,.09);color:#fff;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,filter .2s ease}
 .micButton:hover{transform:scale(1.05)}
 .micButton:active{transform:scale(.96)}
-.micButton:disabled{opacity:.55;cursor:default}
+.conversation-live .micButton{box-shadow:0 0 0 7px rgba(66,111,255,.1),0 0 30px rgba(50,168,255,.72),0 0 48px rgba(140,58,255,.36),inset 0 0 16px rgba(255,255,255,.1)}
 .state-listening .micButton{animation:micPulse 1.05s ease-in-out infinite}
 
 .micIcon{position:relative;width:15px;height:22px;border:2px solid currentColor;border-radius:10px}
