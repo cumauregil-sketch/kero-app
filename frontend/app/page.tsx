@@ -168,14 +168,21 @@ export default function Home() {
               >
                 <defs>
                   <linearGradient id="skinGlow" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#f1fbff" stopOpacity="0.34" />
-                    <stop offset="48%" stopColor="#73d9ff" stopOpacity="0.20" />
-                    <stop offset="100%" stopColor="#2c7cff" stopOpacity="0.08" />
+                    <stop offset="0%" stopColor="#f8fbff" stopOpacity="0.48" />
+                    <stop offset="28%" stopColor="#8be8ff" stopOpacity="0.30" />
+                    <stop offset="60%" stopColor="#5a78ff" stopOpacity="0.22" />
+                    <stop offset="100%" stopColor="#b62cff" stopOpacity="0.16" />
                   </linearGradient>
                   <linearGradient id="bodyGlow" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#dff8ff" stopOpacity="0.28" />
-                    <stop offset="45%" stopColor="#64d0ff" stopOpacity="0.15" />
-                    <stop offset="100%" stopColor="#236fff" stopOpacity="0.05" />
+                    <stop offset="0%" stopColor="#c8f5ff" stopOpacity="0.32" />
+                    <stop offset="42%" stopColor="#397fff" stopOpacity="0.18" />
+                    <stop offset="76%" stopColor="#7d37ff" stopOpacity="0.12" />
+                    <stop offset="100%" stopColor="#d13bff" stopOpacity="0.06" />
+                  </linearGradient>
+                  <linearGradient id="circuitGlow" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#9af0ff" stopOpacity="0.95" />
+                    <stop offset="48%" stopColor="#4d8dff" stopOpacity="0.92" />
+                    <stop offset="100%" stopColor="#d83cff" stopOpacity="0.88" />
                   </linearGradient>
                   <linearGradient id="softBodyGlow" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#8be4ff" stopOpacity="0.16" />
@@ -198,6 +205,13 @@ export default function Home() {
                       <feMergeNode in="SourceGraphic" />
                     </feMerge>
                   </filter>
+                  <filter id="eyeGlow" x="-200%" y="-200%" width="500%" height="500%">
+                    <feGaussianBlur stdDeviation="3.2" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
                 </defs>
 
                 <g className="holoFigure humanFigure">
@@ -210,6 +224,14 @@ export default function Home() {
                     <path className="earPart" d="M149 166c-11-5-14 7-10 23 3 13 9 22 17 20M271 166c11-5 14 7 10 23-3 13-9 22-17 20" />
                     <path className="browLine" d="M169 171c10-6 22-7 33-2M218 169c11-5 23-4 33 2" />
                     <path className="eyeLine" d="M170 184c9-5 20-5 29 0M221 184c9-5 20-5 29 0" />
+                    <ellipse className="eyeGlow" cx="185" cy="184" rx="5.2" ry="2.8" />
+                    <ellipse className="eyeGlow" cx="235" cy="184" rx="5.2" ry="2.8" />
+                    <path className="faceCircuit cyan" d="M154 146l18 10 7 19M160 210l17-9 10-14M266 145l-17 12-7 17M260 211l-17-8-9-16" />
+                    <path className="faceCircuit violet" d="M163 126l21 8 8 14M257 128l-21 9-7 14M177 239l14-7M243 239l-14-7" />
+                    <circle className="circuitNode cyan" cx="154" cy="146" r="2.1" />
+                    <circle className="circuitNode violet" cx="266" cy="145" r="2.1" />
+                    <circle className="circuitNode cyan" cx="160" cy="210" r="1.8" />
+                    <circle className="circuitNode violet" cx="260" cy="211" r="1.8" />
                     <path className="noseLine" d="M210 181c-1 13-2 24-1 31 4 3 8 4 12 3" />
                     <path className="cheekLine" d="M165 202c8 12 17 18 27 21M255 202c-8 12-17 18-27 21" />
                     <path className="faceMouth" d="M188 231c14 7 30 7 44 0" />
@@ -226,6 +248,11 @@ export default function Home() {
                   <path className="collarLine" d="M157 310c11 28 28 43 53 43s42-15 53-43" />
                   <path className="chestTrace" d="M139 377c23 13 47 20 71 20s48-7 71-20" opacity=".26" />
                   <path className="chestTrace" d="M153 430c18 9 37 14 57 14s39-5 57-14" opacity=".14" />
+                  <path className="bodyCircuit cyan" d="M126 354l30 18 18 42 36 18M294 354l-30 18-18 42-36 18" />
+                  <path className="bodyCircuit violet" d="M137 468l32-18 41 21 42-21 31 18M150 520l26-14 34 18 34-18 26 14" />
+                  <circle className="circuitNode cyan" cx="126" cy="354" r="2.2" />
+                  <circle className="circuitNode violet" cx="294" cy="354" r="2.2" />
+                  <circle className="circuitNode cyan" cx="210" cy="432" r="2.4" />
 
                   <g className="leftArm">
                     <path
