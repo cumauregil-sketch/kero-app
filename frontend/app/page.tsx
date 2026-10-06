@@ -5,13 +5,6 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 type Message = { role: 'user' | 'assistant'; content: string };
 type AvatarState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
-const stateLabel: Record<AvatarState, string> = {
-  idle: 'Hazır',
-  listening: 'Dinliyor',
-  thinking: 'Düşünüyor',
-  speaking: 'Konuşuyor',
-};
-
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: 'KERO hazır. Konuşmak için mikrofona dokun.' },
@@ -22,17 +15,20 @@ export default function Home() {
   const [voiceSupported, setVoiceSupported] = useState<boolean | null>(null);
   const [showKeyboard, setShowKeyboard] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
+  const [speechBeat, setSpeechBeat] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const motionUrl = '/api/motion';
-  const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? '';
+  const lastAssistant =
+    [...messages].reverse().find((message) => message.role === 'assistant')?.content ?? '';
 
   useEffect(() => {
     const browser = window as typeof window & {
       SpeechRecognition?: new () => any;
       webkitSpeechRecognition?: new () => any;
     };
+
     setVoiceSupported(Boolean(browser.SpeechRecognition || browser.webkitSpeechRecognition));
 
     return () => {
@@ -43,11 +39,18 @@ export default function Home() {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+
     video.playbackRate =
-      avatarState === 'speaking' ? 1 :
-      avatarState === 'listening' ? 0.78 :
-      avatarState === 'thinking' ? 0.62 : 0.45;
-  }, [avatarState]);
+      avatarState === 'speaking'
+        ? speechBeat
+          ? 1.05
+          : 0.96
+        : avatarState === 'listening'
+          ? 0.72
+          : avatarState === 'thinking'
+            ? 0.56
+            : 0.38;
+  }, [avatarState, speechBeat]);
 
   function speakReply(text: string) {
     if (!('speechSynthesis' in window)) {
@@ -56,6 +59,7 @@ export default function Home() {
     }
 
     window.speechSynthesis.cancel();
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'tr-TR';
     utterance.rate = 1.02;
@@ -65,9 +69,25 @@ export default function Home() {
     const turkish = voices.find((voice) => voice.lang.toLowerCase().startsWith('tr'));
     if (turkish) utterance.voice = turkish;
 
-    utterance.onstart = () => setAvatarState('speaking');
-    utterance.onend = () => setAvatarState('idle');
-    utterance.onerror = () => setAvatarState('idle');
+    utterance.onstart = () => {
+      setSpeechBeat(true);
+      setAvatarState('speaking');
+    };
+
+    utterance.onboundary = () => {
+      setSpeechBeat((current) => !current);
+    };
+
+    utterance.onend = () => {
+      setSpeechBeat(false);
+      setAvatarState('idle');
+    };
+
+    utterance.onerror = () => {
+      setSpeechBeat(false);
+      setAvatarState('idle');
+    };
+
     window.speechSynthesis.speak(utterance);
   }
 
@@ -89,8 +109,10 @@ export default function Home() {
       });
 
       if (!response.ok) throw new Error('API hatası');
+
       const data = await response.json();
       const reply = typeof data.reply === 'string' ? data.reply : 'Yanıt hazır.';
+
       setMessages((current) => [...current, { role: 'assistant', content: reply }]);
       speakReply(reply);
     } catch {
@@ -111,6 +133,7 @@ export default function Home() {
       SpeechRecognition?: new () => any;
       webkitSpeechRecognition?: new () => any;
     };
+
     const SpeechRecognition = browser.SpeechRecognition || browser.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
@@ -126,14 +149,18 @@ export default function Home() {
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => setAvatarState('listening');
+
     recognition.onresult = (event: any) => {
       const transcript = event.results?.[0]?.[0]?.transcript?.trim();
       if (transcript) void sendText(transcript);
     };
+
     recognition.onerror = () => setAvatarState('idle');
+
     recognition.onend = () => {
       setAvatarState((current) => (current === 'listening' ? 'idle' : current));
     };
+
     recognition.start();
   }
 
@@ -143,7 +170,7 @@ export default function Home() {
   }
 
   return (
-    <main className={`keroShell state-${avatarState}`}>
+    <main className={`keroShell state-${avatarState} ${speechBeat ? 'speech-beat' : ''}`}>
       <div className="cosmos" aria-hidden="true" />
 
       {!videoFailed ? (
@@ -156,6 +183,11 @@ export default function Home() {
           loop
           playsInline
           preload="auto"
+          onCanPlay={(event) => {
+            setVideoFailed(false);
+            void event.currentTarget.play().catch(() => undefined);
+          }}
+          onError={() => setVideoFailed(true)}
           aria-label="KERO hareketli dijital karakteri"
         />
       ) : (
@@ -177,11 +209,6 @@ export default function Home() {
           Çevrimiçi
         </div>
       </header>
-
-      <div className="statePill" aria-live="polite">
-        <i />
-        {stateLabel[avatarState]}
-      </div>
 
       <section className="responseCaption" aria-live="polite">
         {avatarState === 'speaking' && lastAssistant ? lastAssistant : ''}
@@ -211,7 +238,7 @@ export default function Home() {
             <span className="micIcon" aria-hidden="true" />
           </button>
 
-          <div className="spacerButton" aria-hidden="true" />
+          <span className="stateLight" aria-hidden="true" />
         </div>
 
         {showKeyboard && (
