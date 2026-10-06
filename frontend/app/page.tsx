@@ -20,11 +20,11 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
   const [voiceSupported, setVoiceSupported] = useState<boolean | null>(null);
-  const [showKeyboard, setShowKeyboard] = useState(false);
+  const [showKeyboard, setShowKeyboard] = useState(false);\n  const [videoFailed, setVideoFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const motionUrl = process.env.NEXT_PUBLIC_KERO_MOTION_URL || '';
+  const motionUrl = '/api/motion';
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? '';
 
   useEffect(() => {
@@ -145,7 +145,7 @@ export default function Home() {
     <main className={`keroShell state-${avatarState}`}>
       <div className="cosmos" aria-hidden="true" />
 
-      {motionUrl ? (
+      {!videoFailed ? (
         <video
           ref={videoRef}
           className="keroMotion"
