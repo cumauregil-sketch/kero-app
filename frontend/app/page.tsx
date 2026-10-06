@@ -20,37 +20,65 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
   const [voiceSupported, setVoiceSupported] = useState<boolean | null>(null);
-  const [voiceHint, setVoiceHint] = useState('Konuşmak için mikrofona dokun');
-  const speechTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showKeyboard, setShowKeyboard] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const lastUser = [...messages].reverse().find((message) => message.role === 'user')?.content;
-  const lastAssistant = [...messages].reverse().find((message) => message.role === 'assistant')?.content;
+  const motionUrl = process.env.NEXT_PUBLIC_KERO_MOTION_URL || '';
+  const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? '';
 
   useEffect(() => {
     const browser = window as typeof window & {
       SpeechRecognition?: new () => any;
       webkitSpeechRecognition?: new () => any;
     };
-
     setVoiceSupported(Boolean(browser.SpeechRecognition || browser.webkitSpeechRecognition));
 
     return () => {
-      if (speechTimer.current) clearTimeout(speechTimer.current);
+      window.speechSynthesis?.cancel();
     };
   }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.playbackRate =
+      avatarState === 'speaking' ? 1 :
+      avatarState === 'listening' ? 0.78 :
+      avatarState === 'thinking' ? 0.62 : 0.45;
+  }, [avatarState]);
+
+  function speakReply(text: string) {
+    if (!('speechSynthesis' in window)) {
+      setAvatarState('idle');
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'tr-TR';
+    utterance.rate = 1.02;
+    utterance.pitch = 0.92;
+
+    const voices = window.speechSynthesis.getVoices();
+    const turkish = voices.find((voice) => voice.lang.toLowerCase().startsWith('tr'));
+    if (turkish) utterance.voice = turkish;
+
+    utterance.onstart = () => setAvatarState('speaking');
+    utterance.onend = () => setAvatarState('idle');
+    utterance.onerror = () => setAvatarState('idle');
+    window.speechSynthesis.speak(utterance);
+  }
 
   async function sendText(rawText: string) {
     const text = rawText.trim();
     if (!text || busy) return;
 
-    if (speechTimer.current) clearTimeout(speechTimer.current);
-
+    window.speechSynthesis?.cancel();
     setMessages((current) => [...current, { role: 'user', content: text }]);
     setInput('');
     setBusy(true);
     setAvatarState('thinking');
-    setVoiceHint('KERO düşünüyor');
 
     try {
       const response = await fetch('/api/chat', {
@@ -60,48 +88,33 @@ export default function Home() {
       });
 
       if (!response.ok) throw new Error('API hatası');
-
       const data = await response.json();
       const reply = typeof data.reply === 'string' ? data.reply : 'Yanıt hazır.';
       setMessages((current) => [...current, { role: 'assistant', content: reply }]);
-      setAvatarState('speaking');
-      setVoiceHint('KERO yanıt veriyor');
-
-      const speakingTime = Math.min(9000, Math.max(2200, reply.length * 42));
-      speechTimer.current = setTimeout(() => {
-        setAvatarState('idle');
-        setVoiceHint('Konuşmak için mikrofona dokun');
-      }, speakingTime);
+      speakReply(reply);
     } catch {
-      setMessages((current) => [
-        ...current,
-        { role: 'assistant', content: 'Backend bağlantısı kurulamadı. API adresini kontrol et.' },
-      ]);
+      const reply = 'Backend bağlantısı kurulamadı. API adresini kontrol et.';
+      setMessages((current) => [...current, { role: 'assistant', content: reply }]);
       setAvatarState('idle');
-      setVoiceHint('Bağlantı kurulamadı');
     } finally {
       setBusy(false);
     }
   }
 
-  function submitFallback(event: FormEvent) {
-    event.preventDefault();
-    void sendText(input);
-  }
-
   function startListening() {
     if (busy) return;
+
+    window.speechSynthesis?.cancel();
 
     const browser = window as typeof window & {
       SpeechRecognition?: new () => any;
       webkitSpeechRecognition?: new () => any;
     };
-
     const SpeechRecognition = browser.SpeechRecognition || browser.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      setVoiceHint('Bu tarayıcıda ses tanıma yok, metin alanını kullan');
-      inputRef.current?.focus();
+      setShowKeyboard(true);
+      requestAnimationFrame(() => inputRef.current?.focus());
       return;
     }
 
@@ -111,237 +124,110 @@ export default function Home() {
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
-    recognition.onstart = () => {
-      setAvatarState('listening');
-      setVoiceHint('Seni dinliyorum');
-    };
-
+    recognition.onstart = () => setAvatarState('listening');
     recognition.onresult = (event: any) => {
       const transcript = event.results?.[0]?.[0]?.transcript?.trim();
       if (transcript) void sendText(transcript);
     };
-
-    recognition.onerror = () => {
-      setAvatarState('idle');
-      setVoiceHint('Mikrofon kullanılamadı, tekrar dokun');
-    };
-
+    recognition.onerror = () => setAvatarState('idle');
     recognition.onend = () => {
       setAvatarState((current) => (current === 'listening' ? 'idle' : current));
     };
-
     recognition.start();
   }
 
+  function submitFallback(event: FormEvent) {
+    event.preventDefault();
+    void sendText(input);
+  }
+
   return (
-    <main className="shell">
-      <section className="panel">
-        <header className="topbar">
-          <div className="logoMark" aria-hidden="true" />
-          <div className="brandText">
-            <h1>KERO</h1>
-            <p>Dijital Yapay Zekâ Asistanı</p>
-          </div>
-          <div className="status">
-            <span className="statusDot" />
-            Çevrimiçi
-          </div>
-        </header>
+    <main className={`keroShell state-${avatarState}`}>
+      <div className="cosmos" aria-hidden="true" />
 
-        <section className="stage" aria-label="KERO dijital karakter alanı">
-          <div className="avatarColumn">
-            <div className="modePill">
-              <i />
-              {stateLabel[avatarState]}
-            </div>
+      {motionUrl ? (
+        <video
+          ref={videoRef}
+          className="keroMotion"
+          src={motionUrl}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          aria-label="KERO hareketli dijital karakteri"
+        />
+      ) : (
+        <div className="fallbackHero" aria-hidden="true">
+          <div className="fallbackGlow" />
+          <div className="fallbackFace">K</div>
+        </div>
+      )}
 
-            <div className={`hologram ${avatarState}`}>
-              <div className="holoAura" />
-              <div className="dataDust" />
-              <div className="scanLine" />
+      <div className="cinematicShade" aria-hidden="true" />
 
-              <svg
-                className="holoSvg"
-                viewBox="0 0 420 720"
-                role="img"
-                aria-label="KERO gerçekçi premium dijital insan hologramı"
-              >
-                <defs>
-                  <linearGradient id="skinGlow" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#f8fbff" stopOpacity="0.48" />
-                    <stop offset="28%" stopColor="#8be8ff" stopOpacity="0.30" />
-                    <stop offset="60%" stopColor="#5a78ff" stopOpacity="0.22" />
-                    <stop offset="100%" stopColor="#b62cff" stopOpacity="0.16" />
-                  </linearGradient>
-                  <linearGradient id="bodyGlow" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#c8f5ff" stopOpacity="0.32" />
-                    <stop offset="42%" stopColor="#397fff" stopOpacity="0.18" />
-                    <stop offset="76%" stopColor="#7d37ff" stopOpacity="0.12" />
-                    <stop offset="100%" stopColor="#d13bff" stopOpacity="0.06" />
-                  </linearGradient>
-                  <linearGradient id="circuitGlow" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#9af0ff" stopOpacity="0.95" />
-                    <stop offset="48%" stopColor="#4d8dff" stopOpacity="0.92" />
-                    <stop offset="100%" stopColor="#d83cff" stopOpacity="0.88" />
-                  </linearGradient>
-                  <linearGradient id="softBodyGlow" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8be4ff" stopOpacity="0.16" />
-                    <stop offset="100%" stopColor="#226dff" stopOpacity="0.025" />
-                  </linearGradient>
-                  <linearGradient id="lineGlow" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#effcff" stopOpacity="0.92" />
-                    <stop offset="50%" stopColor="#78dcff" stopOpacity="0.68" />
-                    <stop offset="100%" stopColor="#3c85ff" stopOpacity="0.30" />
-                  </linearGradient>
-                  <radialGradient id="faceShade" cx="50%" cy="38%" r="64%">
-                    <stop offset="0%" stopColor="#dff8ff" stopOpacity="0.16" />
-                    <stop offset="72%" stopColor="#57c7ff" stopOpacity="0.08" />
-                    <stop offset="100%" stopColor="#1c62ff" stopOpacity="0.01" />
-                  </radialGradient>
-                  <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur stdDeviation="2.2" result="blur" />
-                    <feMerge>
-                      <feMergeNode in="blur" />
-                      <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                  </filter>
-                  <filter id="eyeGlow" x="-200%" y="-200%" width="500%" height="500%">
-                    <feGaussianBlur stdDeviation="3.2" result="blur" />
-                    <feMerge>
-                      <feMergeNode in="blur" />
-                      <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                  </filter>
-                </defs>
+      <header className="hudTop">
+        <div className="brand">
+          <span className="brandOrb" aria-hidden="true" />
+          <strong>KERO</strong>
+        </div>
+        <div className="online">
+          <i />
+          Çevrimiçi
+        </div>
+      </header>
 
-                <g className="holoFigure humanFigure">
-                  <g className="headGroup">
-                    <path className="hairShape" d="M151 147c2-44 25-77 59-77 39 0 61 29 62 77-9-22-23-37-39-44-22-10-51-3-82 44Z" />
-                    <path
-                      className="skinPart faceShape"
-                      d="M210 89c-37 0-61 28-62 72-1 38 11 76 34 97 9 9 18 14 28 14s19-5 28-14c23-21 35-59 34-97-1-44-25-72-62-72Z"
-                    />
-                    <path className="earPart" d="M149 166c-11-5-14 7-10 23 3 13 9 22 17 20M271 166c11-5 14 7 10 23-3 13-9 22-17 20" />
-                    <path className="browLine" d="M169 171c10-6 22-7 33-2M218 169c11-5 23-4 33 2" />
-                    <path className="eyeLine" d="M170 184c9-5 20-5 29 0M221 184c9-5 20-5 29 0" />
-                    <ellipse className="eyeGlow" cx="185" cy="184" rx="5.2" ry="2.8" />
-                    <ellipse className="eyeGlow" cx="235" cy="184" rx="5.2" ry="2.8" />
-                    <path className="faceCircuit cyan" d="M154 146l18 10 7 19M160 210l17-9 10-14M266 145l-17 12-7 17M260 211l-17-8-9-16" />
-                    <path className="faceCircuit violet" d="M163 126l21 8 8 14M257 128l-21 9-7 14M177 239l14-7M243 239l-14-7" />
-                    <circle className="circuitNode cyan" cx="154" cy="146" r="2.1" />
-                    <circle className="circuitNode violet" cx="266" cy="145" r="2.1" />
-                    <circle className="circuitNode cyan" cx="160" cy="210" r="1.8" />
-                    <circle className="circuitNode violet" cx="260" cy="211" r="1.8" />
-                    <path className="noseLine" d="M210 181c-1 13-2 24-1 31 4 3 8 4 12 3" />
-                    <path className="cheekLine" d="M165 202c8 12 17 18 27 21M255 202c-8 12-17 18-27 21" />
-                    <path className="faceMouth" d="M188 231c14 7 30 7 44 0" />
-                    <path className="jawLine" d="M175 244c10 15 22 23 35 23s25-8 35-23" />
-                  </g>
+      <div className="statePill" aria-live="polite">
+        <i />
+        {stateLabel[avatarState]}
+      </div>
 
-                  <path className="neckPart" d="M181 251c3 22 0 38-11 51 11 18 25 27 40 27s29-9 40-27c-11-13-14-29-11-51-9 10-19 16-29 16s-20-6-29-16Z" />
+      <section className="responseCaption" aria-live="polite">
+        {avatarState === 'speaking' && lastAssistant ? lastAssistant : ''}
+      </section>
 
-                  <path
-                    className="torsoPart"
-                    d="M166 296c-25 5-48 16-66 34-14 14-20 36-22 63l-8 133c-2 37 19 66 52 75 26 7 58 9 88 9s62-2 88-9c33-9 54-38 52-75l-8-133c-2-27-8-49-22-63-18-18-41-29-66-34-7 31-23 48-44 48s-37-17-44-48Z"
-                  />
-                  <path className="chestShade" d="M123 347c25 27 54 41 87 41s62-14 87-41c-5 63-11 126-13 189-18 8-43 12-74 12s-56-4-74-12c-2-63-8-126-13-189Z" />
-                  <path className="collarLine" d="M157 310c11 28 28 43 53 43s42-15 53-43" />
-                  <path className="chestTrace" d="M139 377c23 13 47 20 71 20s48-7 71-20" opacity=".26" />
-                  <path className="chestTrace" d="M153 430c18 9 37 14 57 14s39-5 57-14" opacity=".14" />
-                  <path className="bodyCircuit cyan" d="M126 354l30 18 18 42 36 18M294 354l-30 18-18 42-36 18" />
-                  <path className="bodyCircuit violet" d="M137 468l32-18 41 21 42-21 31 18M150 520l26-14 34 18 34-18 26 14" />
-                  <circle className="circuitNode cyan" cx="126" cy="354" r="2.2" />
-                  <circle className="circuitNode violet" cx="294" cy="354" r="2.2" />
-                  <circle className="circuitNode cyan" cx="210" cy="432" r="2.4" />
+      <footer className="controlLayer">
+        <div className="voiceDock">
+          <button
+            type="button"
+            className="keyboardButton"
+            onClick={() => {
+              setShowKeyboard((value) => !value);
+              requestAnimationFrame(() => inputRef.current?.focus());
+            }}
+            aria-label="Klavye ile yaz"
+          >
+            ⌨
+          </button>
 
-                  <g className="leftArm">
-                    <path
-                      className="limbPart"
-                      d="M102 333c-20 13-31 34-35 61l-18 111c-4 25 6 41 24 44 18 2 31-11 35-33l18-108c4-28 2-53-7-69l-17-6Z"
-                    />
-                    <g className="leftForearm">
-                      <path
-                        className="limbSoft"
-                        d="M73 518c-8 13-14 31-17 51l-6 38c-3 18 7 31 22 33 15 2 27-8 30-25l8-42c4-22 1-39-8-50l-29-5Z"
-                      />
-                      <path className="handPart" d="M52 606c-5 16-3 31 8 43 8 9 21 10 30 3 8-6 12-18 9-30l-6-26-41 10Z" />
-                      <path className="fingerLine" d="M58 620l-2 19M68 616l-1 25M79 615v24M89 618l2 17" />
-                    </g>
-                  </g>
+          <button
+            type="button"
+            className="micButton"
+            onClick={startListening}
+            disabled={busy}
+            aria-label="KERO ile konuş"
+          >
+            <span className="micIcon" aria-hidden="true" />
+          </button>
 
-                  <g className="rightArm">
-                    <path
-                      className="limbPart"
-                      d="M318 333c20 13 31 34 35 61l18 111c4 25-6 41-24 44-18 2-31-11-35-33l-18-108c-4-28-2-53 7-69l17-6Z"
-                    />
-                    <g className="rightForearm">
-                      <path
-                        className="limbSoft"
-                        d="M347 518c8 13 14 31 17 51l6 38c3 18-7 31-22 33-15 2-27-8-30-25l-8-42c-4-22-1-39 8-50l29-5Z"
-                      />
-                      <path className="handPart" d="M368 606c5 16 3 31-8 43-8 9-21 10-30 3-8-6-12-18-9-30l6-26 41 10Z" />
-                      <path className="fingerLine" d="M362 620l2 19M352 616l1 25M341 615v24M331 618l-2 17" />
-                    </g>
-                  </g>
+          <div className="spacerButton" aria-hidden="true" />
+        </div>
 
-                  <path className="lowerBody" d="M128 584c23 10 50 15 82 15s59-5 82-15l18 75H110l18-75Z" />
-                  <path className="waistLine" d="M132 600c22 9 48 13 78 13s56-4 78-13" />
-                </g>
-              </svg>
-
-              <div className="holoRing" />
-            </div>
-
-            <div className="transcript" aria-live="polite">
-              <div className="transcriptCard userHistory">
-                <strong>Sen</strong>
-                {lastUser ?? 'Henüz konuşma başlamadı.'}
-              </div>
-              <div className="transcriptCard">
-                <strong>KERO</strong>
-                {lastAssistant ?? 'Hazır.'}
-              </div>
-            </div>
-          </div>
-
-        </section>
-
-        <footer className="controlDock">
-          <div className="voiceRow">
-            <button
-              type="button"
-              className={`micButton ${avatarState === 'listening' ? 'listening' : ''}`}
-              onClick={startListening}
-              disabled={busy}
-              aria-label="KERO ile konuş"
-            >
-              <span className="micIcon" aria-hidden="true" />
-            </button>
-
-            <div className="voiceLabel">
-              <strong>{voiceHint}</strong>
-              <span>
-                {voiceSupported === false
-                  ? 'Ses tanıma desteklenmiyorsa metin alanı kullanılabilir.'
-                  : 'KERO yalnızca sen başlattığında dinler.'}
-              </span>
-            </div>
-          </div>
-
-          <form className="fallbackForm" onSubmit={submitFallback}>
+        {showKeyboard && (
+          <form className="textComposer" onSubmit={submitFallback}>
             <input
               ref={inputRef}
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Gerekirse metinle test et…"
-              aria-label="Metinle mesaj"
+              placeholder={voiceSupported === false ? 'Mesajını yaz…' : 'İstersen yazabilirsin…'}
+              aria-label="KERO'ya mesaj yaz"
             />
             <button type="submit" disabled={busy || !input.trim()}>
               Gönder
             </button>
           </form>
-        </footer>
-      </section>
+        )}
+      </footer>
     </main>
   );
 }
