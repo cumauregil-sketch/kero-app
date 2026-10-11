@@ -24,12 +24,20 @@ export default function Home() {
   const [voiceMode, setVoiceMode] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [voiceAvailable, setVoiceAvailable] = useState(true);
+  const [dictating, setDictating] = useState(false);
+  const [dictationNotice, setDictationNotice] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const activeRef = useRef(false);
   const busyRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dictationRef = useRef<any>(null);
+  const dictationWantedRef = useRef(false);
+  const dictationSessionRef = useRef(0);
+  const dictationBaseRef = useRef('');
+  const dictationSegmentRef = useRef('');
+  const dictationRestartRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     try {
@@ -47,6 +55,10 @@ export default function Home() {
     return () => {
       activeRef.current = false;
       recognitionRef.current?.abort?.();
+      dictationWantedRef.current = false;
+      dictationSessionRef.current += 1;
+      dictationRef.current?.abort?.();
+      if (dictationRestartRef.current) clearTimeout(dictationRestartRef.current);
       controllerRef.current?.abort();
       window.speechSynthesis?.cancel();
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -59,6 +71,113 @@ export default function Home() {
     catch { /* Allow chatting even if storage access is blocked. */ }
   }, [messages, hydrated]);
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages, busy]);
+
+
+  // Turkish browser speech recognition: show interim text live but keep the
+  // final recognition result when it arrives. Never submit dictated text automatically.
+  function joinSpoken(base: string, spoken: string) {
+    const cleanBase = base.trimEnd();
+    const cleanSpoken = spoken.trim();
+    return cleanBase && cleanSpoken ? cleanBase + ' ' + cleanSpoken : (cleanBase || cleanSpoken);
+  }
+
+  function stopDictation() {
+    dictationWantedRef.current = false;
+    dictationSessionRef.current += 1; // Invalidate late callbacks from cancelled recognition.
+    if (dictationRestartRef.current) {
+      clearTimeout(dictationRestartRef.current);
+      dictationRestartRef.current = null;
+    }
+    const current = dictationRef.current;
+    dictationRef.current = null;
+    current?.abort?.();
+    setDictating(false);
+  }
+
+  function listenForDictation() {
+    if (!dictationWantedRef.current) return;
+    const browser = window as any;
+    const Recognition = browser.SpeechRecognition || browser.webkitSpeechRecognition;
+    if (!Recognition) {
+      dictationWantedRef.current = false;
+      setDictating(false);
+      setDictationNotice('Bu tarayıcı sesle yazmayı desteklemiyor.');
+      return;
+    }
+    const recognition = new Recognition();
+    const session = ++dictationSessionRef.current;
+    const base = dictationBaseRef.current;
+    dictationSegmentRef.current = '';
+    dictationRef.current = recognition;
+    recognition.lang = 'tr-TR';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event: any) => {
+      if (session !== dictationSessionRef.current || !dictationWantedRef.current) return;
+      const final: string[] = [];
+      const interim: string[] = [];
+      for (let i = 0; i < event.results.length; i += 1) {
+        const result = event.results[i];
+        const phrase = result?.[0]?.transcript?.trim();
+        if (!phrase) continue;
+        (result.isFinal ? final : interim).push(phrase);
+      }
+      const heard = [...final, ...interim].join(' ').trim();
+      dictationSegmentRef.current = heard;
+      setInput(joinSpoken(base, heard));
+    };
+    recognition.onerror = (event: any) => {
+      if (session !== dictationSessionRef.current) return;
+      const errors: Record<string, string> = {
+        'not-allowed': 'Mikrofon izni verilmedi. Tarayıcıdan mikrofon erişimine izin ver.',
+        'service-not-allowed': 'Tarayıcı konuşma tanıma hizmetine izin vermiyor.',
+        'audio-capture': 'Mikrofon bulunamadı. Mikrofon bağlantısını kontrol et.',
+        'network': 'Ses algılama hizmetine bağlanılamadı.',
+        'no-speech': 'Ses duyulmadı. Mikrofonu tekrar açarak deneyebilirsin.',
+        'language-not-supported': 'Tarayıcı Türkçe konuşma tanımayı desteklemiyor.'
+      };
+      if (event.error !== 'aborted') {
+        setDictationNotice(errors[event.error] || 'Sesle yazma kesildi. Tekrar deneyebilirsin.');
+      }
+      dictationWantedRef.current = false;
+      setDictating(false);
+    };
+    recognition.onend = () => {
+      if (session !== dictationSessionRef.current) return;
+      // Some browsers end recognition during pauses. Preserve the words already
+      // displayed and reopen the listener while the user still wants dictation.
+      dictationBaseRef.current = joinSpoken(base, dictationSegmentRef.current);
+      dictationSegmentRef.current = '';
+      dictationRef.current = null;
+      if (dictationWantedRef.current) {
+        dictationRestartRef.current = setTimeout(() => {
+          dictationRestartRef.current = null;
+          listenForDictation();
+        }, 350);
+      } else {
+        setDictating(false);
+      }
+    };
+    try {
+      recognition.start();
+      setDictating(true);
+    } catch {
+      dictationWantedRef.current = false;
+      dictationRef.current = null;
+      setDictating(false);
+      setDictationNotice('Mikrofon başlatılamadı. Tekrar deneyebilirsin.');
+    }
+  }
+
+  function toggleDictation() {
+    if (dictationWantedRef.current) { stopDictation(); return; }
+    if (busyRef.current || activeRef.current) return;
+    dictationBaseRef.current = input;
+    dictationWantedRef.current = true;
+    setDictationNotice('');
+    listenForDictation();
+  }
 
   function endVoice() {
     activeRef.current = false;
@@ -160,6 +279,7 @@ export default function Home() {
   function toggleVoice() {
     if (voiceMode) { endVoice(); return; }
     if (!voiceAvailable) return;
+    if (dictationWantedRef.current) stopDictation();
     activeRef.current = true;
     setVoiceMode(true);
     listen();
@@ -167,10 +287,13 @@ export default function Home() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (dictationWantedRef.current) stopDictation();
     void sendMessage(input);
   }
 
   function clearChat() {
+    if (dictationWantedRef.current) stopDictation();
+    setDictationNotice('');
     endVoice();
     setMessages([welcome]);
   }
@@ -209,12 +332,15 @@ export default function Home() {
         </div>
         <div className="composerWrap"><form className="composer" onSubmit={submit}>
           <span className="composerStar" aria-hidden="true">✦</span>
-          <input aria-label="Mesaj" placeholder="KERO'ya bir şey sor…" value={input} onChange={e=>setInput(e.target.value)}/>
-          <button type="button" className="voiceToggle" onClick={toggleVoice} disabled={!voiceAvailable} title={voiceAvailable?'Sesli sohbet':'Tarayıcı sesli sohbeti desteklemiyor'} aria-label="Sesli sohbet">
+          <input aria-label="Mesaj" placeholder={dictating?'Dinliyorum, konuşabilirsin…':"KERO'ya bir şey sor…"} value={input} onChange={e=>{ if (dictationWantedRef.current) stopDictation(); setInput(e.target.value); }}/>
+          <button type="button" className={'dictateToggle'+(dictating?' active':'')} onClick={toggleDictation} disabled={!voiceAvailable || busy} aria-label={dictating?'Sesle yazmayı durdur':'Sesle yaz'} aria-pressed={dictating} title={dictating?'Sesle yazmayı durdur':'Sesle yaz: Konuşman mesaj kutusuna yazılır'}>
             <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4m-4 0h8" stroke="currentColor" fill="none" strokeWidth="1.8" strokeLinecap="round"/></svg>
           </button>
+          <button type="button" className="voiceToggle" onClick={toggleVoice} disabled={!voiceAvailable} title={voiceAvailable?'Sesli görüşmeyi aç':'Tarayıcı sesli sohbeti desteklemiyor'} aria-label="Sesli görüşmeyi aç">
+            <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="M4 8a9 9 0 0 0 0 8M20 8a9 9 0 0 1 0 8M7 5a11 11 0 0 0 0 14M17 5a11 11 0 0 1 0 14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>
+          </button>
           <button type="submit" className="sendButton" disabled={busy || !input.trim()} aria-label="Gönder">↑</button>
-        </form><small>KERO şu an test yanıtları vermektedir. Önemli bilgileri doğrulayın.</small></div>
+        </form><small className={dictationNotice?'dictationError':dictating?'dictationHint':''} aria-live="polite">{dictationNotice || (dictating?'🎙️ Sesle yazma açık. Konuşman otomatik gönderilmez; metni kontrol edip Gönder\'e bas.':'KERO şu an test yanıtları vermektedir. Önemli bilgileri doğrulayın.')}</small></div>
       </section>
       {voiceMode && <div className={'voiceOverlay state-'+voiceState} role="dialog" aria-modal="true" aria-label="KERO sesli sohbet">
         <LightWaves/>
