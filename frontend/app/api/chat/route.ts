@@ -14,10 +14,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
+    const accessCode = typeof body.accessCode === 'string' ? body.accessCode : '';
     const response = await fetch(`${base}/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json', ...(accessCode ? { 'X-Kero-Access-Code': accessCode } : {}) },
+      body: JSON.stringify({ message: body.message, history: body.history || [] }),
       cache: 'no-store',
     });
 
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('KERO chat proxy error', error);
     return NextResponse.json(
-      { reply: 'Backend bağlantısı kurulamadı.' },
+      { detail: 'Backend bağlantısı kurulamadı.' },
       { status: 502 },
     );
   }
