@@ -1,37 +1,31 @@
 # KERO
 
-KERO is a Turkish-first AI assistant platform with a premium dark chat interface and a dedicated voice-conversation mode.
+Türkçe öncelikli yapay zekâ asistanı. Next.js arayüzü ve FastAPI arka ucu Railway'de yayınlanır.
 
-## Active product architecture
-- **Primary interface:** text chat, with saved conversation on the current device.
-- **Voice interface:** microphone button opens a dedicated voice overlay with an animated abstract sphere.
-- **No human character:** previous silhouette, face, mouth motion and video-based avatar flows are retired and must not be reintroduced.
-- **Frontend:** Next.js 15, React 19, TypeScript.
-- **Backend:** FastAPI.
-- **Deploy:** Railway.
-- **Future orchestration:** multi-model routing and specialist agents behind one KERO identity.
+## Mevcut sistem
+- Sohbet içinde küçük animasyonlu sesli görüşme küresi, Türkçe konuşma tanıma ve sohbet geçmişi bulunur.
+- Ses çıkışı hâlâ tarayıcı `speechSynthesis` kullanır. **Doğal gerçek zamanlı ses henüz tamamlanmadı.**
+- Gemini metin modeli için kod `feature/kero-gemini-chat` geliştirme dalında hazırlanmıştır. **Canlıda henüz etkin değildir.**
+- Sohbet geçmişi şu anda cihazın yerel belleğinde saklanır; kalıcı kullanıcı hesapları henüz yoktur.
 
-## Current limitations
-- The backend currently returns an echo response ('Mesajını aldım'); live LLM integration is not done.
-- Voice input/output uses browser speech services. Browser support and voice quality vary.
-- Conversation history is stored in localStorage on this device, not synced to user accounts.
+## Gemini pilot ayarları
+Railway **kero-api** servisine sunucu tarafında şunlar tanımlanmalıdır:
 
-## Local development
+```
+GEMINI_API_KEY=<Google AI Studio'dan aldığınız API anahtarı>
+KERO_ACCESS_CODE=<uzun ve tahmin edilmesi güç davet kodu>
+GEMINI_MODEL=gemini-3.5-flash-lite
+```
 
-Backend:
+Model isteğe bağlıdır; daha yüksek yanıt kalitesi için `gemini-3.8-flash` seçilebilir. Kullanım kotası ve ücretli kullanım şartlarını ayrıca kontrol edin. Anahtarı GitHub, tarayıcı kaynak kodu veya `NEXT_PUBLIC_` değişkenlerinde tutmayın.
+
+Davet kodu yalnızca geçici bir pilot korumasıdır. 50 kullanıcılık aşamadan önce bireysel kimlik doğrulama, hesap bazında kota ve merkezi sohbet kaydı gereklidir. Şu haliyle herkese açık kullanıma hazır değildir.
+
+## Çalıştırma
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
-
-Frontend:
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open http://localhost:3000. Set RAILWAY_SERVICE_KERO_API_URL in frontend deployment to point to the running backend.
+Başka terminalde `cd frontend && npm install && npm run dev`.
+Frontend proxy adresi `RAILWAY_SERVICE_KERO_API_URL` değişkeninden okunur.
