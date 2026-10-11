@@ -1,12 +1,17 @@
 import hmac
 import os
+import time
+from collections import deque
 
 import httpx
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="KERO API", version="0.2.0")
+app = FastAPI(title="KERO API", version="0.2.1")
+# Pilot-only per-IP throttling, per-worker. Replace with account quotas before public launch.
+request_times: dict[str, deque[float]] = {}
+
 origins = [x.strip() for x in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if x.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
@@ -26,20 +31,36 @@ def health():
     return {"status": "ok", "service": "kero-api", "ai_ready": bool(os.getenv("GEMINI_API_KEY") and os.getenv("KERO_ACCESS_CODE"))}
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(payload: ChatRequest, x_kero_access_code: str | None = Header(default=None)):
+async def chat(payload: ChatRequest, request: Request, x_kero_access_code: str | None = Header(default=None)):
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     pilot_code = os.getenv("KERO_ACCESS_CODE", "").strip()
     if not api_key or not pilot_code:
         return ChatResponse(reply="KERO'nun yapay zekâ bağlantısı henüz etkin değil. Yönetici yapılandırması gerekiyor.")
     if not x_kero_access_code or not hmac.compare_digest(x_kero_access_code, pilot_code):
         raise HTTPException(status_code=401, detail="KERO özel test erişim kodu gerekli.")
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    times = request_times.setdefault(client_ip, deque())
+    while times and now - times[0] > 60:
+        times.popleft()
+    if len(times) >= 30:
+        raise HTTPException(status_code=429, detail="Çok fazla mesaj gönderildi. Bir dakika sonra tekrar dene.")
+    times.append(now)
     model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     if model not in ("gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.8-flash"):
         raise HTTPException(status_code=503, detail="Model yapılandırması geçersiz.")
-    turns = [
-        {"role": "model" if m.role == "assistant" else "user", "parts": [{"text": m.content}]}
-        for m in payload.history[-12:] if m.role in ("user", "assistant")
-    ]
+    # Never send the static UI greeting as a model turn at the start.
+    turns = []
+    for m in payload.history[-12:]:
+        if m.role not in ("user", "assistant"):
+            continue
+        role = "model" if m.role == "assistant" else "user"
+        if not turns and role != "user":
+            continue
+        if turns and turns[-1]["role"] == role:
+            turns[-1]["parts"][0]["text"] += "\\n" + m.content
+        else:
+            turns.append({"role": role, "parts": [{"text": m.content}]})
     turns.append({"role": "user", "parts": [{"text": payload.message}]})
     body = {
         "systemInstruction": {"parts": [{"text": "Sen KERO'sun. Doğal, sıcak ve akıcı Türkçe konuş. Gerçek soruya yanıt ver; mekanik test mesajları üretme. Yapmadığın eylemleri yaptığını söyleme. Gerektiğinde bilmediğini belirt."}]},
@@ -60,6 +81,10 @@ async def chat(payload: ChatRequest, x_kero_access_code: str | None = Header(def
             raise HTTPException(status_code=502, detail="Model yanıt üretemedi.")
         return ChatResponse(reply=reply)
     except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 400:
+            raise HTTPException(status_code=503, detail="Yapay zekâ isteği sağlayıcı tarafından reddedildi. Bağlantı ayarlarını kontrol et.") from exc
+        if exc.response.status_code in (401, 403, 404):
+            raise HTTPException(status_code=503, detail="Gemini modeli veya API anahtarı kullanılamıyor. Yapılandırmayı kontrol et.") from exc
         if exc.response.status_code == 429:
             raise HTTPException(status_code=429, detail="Yapay zekâ kullanım kotası doldu.") from exc
         raise HTTPException(status_code=502, detail="Yapay zekâ sağlayıcısına bağlanılamadı.") from exc
