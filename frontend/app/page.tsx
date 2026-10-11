@@ -27,11 +27,15 @@ export default function Home() {
   const [voiceAvailable, setVoiceAvailable] = useState(true);
   const [dictating, setDictating] = useState(false);
   const [dictationNotice, setDictationNotice] = useState('');
+  const [accessPrompt, setAccessPrompt] = useState(false);
+  const [accessNotice, setAccessNotice] = useState('');
+  const [accessInput, setAccessInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const activeRef = useRef(false);
   const busyRef = useRef(false);
+  const accessCodeRef = useRef('');
   const speakingRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dictationRef = useRef<any>(null);
@@ -51,6 +55,7 @@ export default function Home() {
         }
       }
     } catch { /* Gracefully fall back when saved chat or storage is unavailable. */ }
+    try { accessCodeRef.current = sessionStorage.getItem('kero-pilot-code') || ''; } catch { /* optional storage */ }
     setHydrated(true);
     const browser = window as any;
     setVoiceAvailable(Boolean(browser.SpeechRecognition || browser.webkitSpeechRecognition));
@@ -258,6 +263,16 @@ export default function Home() {
     window.speechSynthesis.speak(utterance);
   }
 
+  function saveAccess(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!accessInput.trim()) return;
+    accessCodeRef.current = accessInput.trim();
+    try { sessionStorage.setItem('kero-pilot-code', accessCodeRef.current); } catch { /* optional storage */ }
+    setAccessInput('');
+    setAccessNotice('');
+    setAccessPrompt(false);
+  }
+
   async function sendMessage(raw: string, fromVoice = false) {
     const content = raw.trim();
     if (!content || busyRef.current) return;
@@ -272,18 +287,27 @@ export default function Home() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: content }),
+        body: JSON.stringify({ message: content, history: messages.slice(-12), accessCode: accessCodeRef.current }),
         signal: controller.signal
       });
-      if (!response.ok) throw new Error('API hatası');
       const data = await response.json();
+      if (response.status === 401 || response.status === 403) {
+        setAccessPrompt(true);
+        setAccessNotice(data.detail || 'KERO erişim kodunu gir.');
+        setMessages(prev => prev.slice(0, -1));
+        setInput(content);
+        if (activeRef.current) endVoice();
+        return;
+      }
+      if (!response.ok) throw new Error(data.detail || 'Yapay zekâ yanıtı alınamadı.');
       const reply = typeof data.reply === 'string' ? data.reply : 'Yanıt alınamadı.';
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
       if (fromVoice && activeRef.current) speak(reply);
       else setVoiceState('idle');
-    } catch {
+    } catch (error) {
       if (!controller.signal.aborted) {
-        setMessages(prev => [...prev, { role: 'assistant', content: 'Bağlantı kurulamadı. Lütfen tekrar dene.' }]);
+        const reason = error instanceof Error ? error.message : 'Bağlantı kurulamadı. Lütfen tekrar dene.';
+        setMessages(prev => [...prev, { role: 'assistant', content: reason }]);
         setVoiceState('idle');
       }
     } finally {
@@ -356,6 +380,11 @@ export default function Home() {
           </div>}
         </div>
         <div className="composerWrap">
+          {accessPrompt && <form className="pilotAccess" onSubmit={saveAccess}>
+            <strong>KERO ÖZEL ERİŞİM</strong>
+            <span>{accessNotice || 'Davet erişim kodunu gir.'}</span>
+            <div><input type="password" autoComplete="off" aria-label="KERO erişim kodu" placeholder="Erişim kodu" value={accessInput} onChange={e=>setAccessInput(e.target.value)}/><button type="submit" disabled={!accessInput.trim()}>Kaydet</button></div>
+          </form>}
           {voiceMode && <div className={'inlineVoiceDock '+voiceState} role="region" aria-label="KERO sesli görüşme">
             <div className="miniVoiceSculpture" aria-hidden="true"><span className="miniVoiceRing"/><span className="miniVoiceRing second"/><span className="miniVoiceOrb"><i/></span></div>
             <div className="inlineVoiceText">
