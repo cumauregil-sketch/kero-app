@@ -17,6 +17,8 @@ function LightWaves() {
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([welcome]);
+  // Avoid displaying the default welcome screen before stored chats hydrate.
+  const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
@@ -30,13 +32,16 @@ export default function Home() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('kero-chat-v1');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.every((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')) setMessages(parsed);
-      } catch { /* Ignore invalid local data. */ }
-    }
+    try {
+      const saved = localStorage.getItem('kero-chat-v1');
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed.every((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')) {
+          setMessages(parsed as Message[]);
+        }
+      }
+    } catch { /* Gracefully fall back when saved chat or storage is unavailable. */ }
+    setHydrated(true);
     const browser = window as any;
     setVoiceAvailable(Boolean(browser.SpeechRecognition || browser.webkitSpeechRecognition));
     return () => {
@@ -48,7 +53,11 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => { localStorage.setItem('kero-chat-v1', JSON.stringify(messages)); }, [messages]);
+  useEffect(() => {
+    if (!hydrated) return;
+    try { localStorage.setItem('kero-chat-v1', JSON.stringify(messages)); }
+    catch { /* Allow chatting even if storage access is blocked. */ }
+  }, [messages, hydrated]);
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages, busy]);
 
   function endVoice() {
@@ -166,7 +175,7 @@ export default function Home() {
     setMessages([welcome]);
   }
 
-  const isWelcome = messages.length===1 && messages[0].role==='assistant' && messages[0].content===welcome.content;
+  const isWelcome = hydrated && messages.length===1 && messages[0].role==='assistant' && messages[0].content===welcome.content;
   return (
     <main className="app">
       <aside className="sidebar">
@@ -177,7 +186,7 @@ export default function Home() {
           <button className="navLink active" type="button" onClick={()=>{endVoice();}}><span className="navGlyph">▧</span><span className="navText">Sohbet</span></button>
           <button className="navLink" type="button" onClick={toggleVoice} disabled={!voiceAvailable}><span className="navGlyph">◉</span><span className="navText">Sesli görüşme</span></button>
         </div>
-        <div className="sidebarBottom"><div className="online"><span className="statusDot"/> KERO arayüzü hazır</div><small>Sohbetler bu cihazda saklanır.</small></div>
+        <div className="sidebarBottom"><div className="online"><span className="statusDot"/><strong>KERO HAZIR</strong></div><small>Sohbetler bu cihazda saklanır.</small></div>
       </aside>
       <section className="workspace">
         <LightWaves/>
@@ -185,7 +194,7 @@ export default function Home() {
           <button className="topVoice" type="button" onClick={toggleVoice} disabled={!voiceAvailable}><span aria-hidden="true">◉</span><span className="topVoiceText">Sesli görüşme</span></button>
         </header>
         <div className={'messageArea '+(isWelcome?'welcomeArea':'')} ref={scrollRef}>
-          {isWelcome ? <div className="welcomeHero">
+          {!hydrated ? null : isWelcome ? <div className="welcomeHero">
             <div className="heroIcon"><span className="orbit orbit1"/><span className="orbit orbit2"/><BrandIcon large/></div>
             <div className="heroEyebrow">✧ &nbsp; INTELLIGENCE IN MOTION &nbsp; ✧</div>
             <h1>Bir fikrin varsa, <span>birlikte büyütelim.</span></h1>
