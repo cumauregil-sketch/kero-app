@@ -23,6 +23,7 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
+  const [voiceTranscript, setVoiceTranscript] = useState('');
   const [voiceAvailable, setVoiceAvailable] = useState(true);
   const [dictating, setDictating] = useState(false);
   const [dictationNotice, setDictationNotice] = useState('');
@@ -31,6 +32,7 @@ export default function Home() {
   const controllerRef = useRef<AbortController | null>(null);
   const activeRef = useRef(false);
   const busyRef = useRef(false);
+  const speakingRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dictationRef = useRef<any>(null);
   const dictationWantedRef = useRef(false);
@@ -183,6 +185,8 @@ export default function Home() {
     activeRef.current = false;
     setVoiceMode(false);
     setVoiceState('idle');
+    setVoiceTranscript('');
+    speakingRef.current = false;
     if (timerRef.current) clearTimeout(timerRef.current);
     recognitionRef.current?.abort?.();
     recognitionRef.current = null;
@@ -193,7 +197,7 @@ export default function Home() {
   }
 
   function listen() {
-    if (!activeRef.current || busyRef.current) return;
+    if (!activeRef.current || busyRef.current || speakingRef.current) return;
     const browser = window as any;
     const Recognition = browser.SpeechRecognition || browser.webkitSpeechRecognition;
     if (!Recognition) { setVoiceAvailable(false); endVoice(); return; }
@@ -201,24 +205,38 @@ export default function Home() {
     recognitionRef.current = recognition;
     recognition.lang = 'tr-TR';
     recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     let handled = false;
-    recognition.onstart = () => setVoiceState('listening');
+    recognition.onstart = () => { if (activeRef.current) setVoiceState('listening'); };
     recognition.onresult = (event: any) => {
-      const transcript = event.results?.[0]?.[0]?.transcript?.trim();
-      if (transcript && !handled) {
+      if (!activeRef.current || handled) return;
+      const final: string[] = [];
+      const interim: string[] = [];
+      for (let i = 0; i < event.results.length; i += 1) {
+        const result = event.results[i];
+        const phrase = result?.[0]?.transcript?.trim();
+        if (phrase) (result.isFinal ? final : interim).push(phrase);
+      }
+      setVoiceTranscript([...final, ...interim].join(' ').trim());
+      if (final.length) {
         handled = true;
         recognitionRef.current = null;
-        void sendMessage(transcript, true);
+        setVoiceTranscript('');
+        void sendMessage(final.join(' '), true);
       }
     };
     recognition.onerror = (event: any) => {
-      if (event.error === 'not-allowed') { endVoice(); return; }
+      if (!activeRef.current) return;
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') { endVoice(); return; }
+      setVoiceTranscript('');
       setVoiceState('idle');
     };
     recognition.onend = () => {
       if (recognitionRef.current === recognition) recognitionRef.current = null;
-      if (!handled && activeRef.current && !busyRef.current) timerRef.current = setTimeout(listen, 450);
+      if (!handled && activeRef.current && !busyRef.current) {
+        setVoiceTranscript('');
+        timerRef.current = setTimeout(listen, 450);
+      }
     };
     try { recognition.start(); } catch { setVoiceState('idle'); }
   }
@@ -226,12 +244,14 @@ export default function Home() {
   function speak(text: string) {
     if (!activeRef.current || !('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
+    speakingRef.current = true;
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'tr-TR';
     const turkish = window.speechSynthesis.getVoices().find(v => v.lang.toLowerCase().startsWith('tr'));
     if (turkish) utterance.voice = turkish;
     utterance.onstart = () => setVoiceState('speaking');
     utterance.onend = utterance.onerror = () => {
+      speakingRef.current = false;
       setVoiceState('idle');
       if (activeRef.current) timerRef.current = setTimeout(listen, 350);
     };
@@ -270,8 +290,8 @@ export default function Home() {
       if (controllerRef.current === controller) controllerRef.current = null;
       busyRef.current = false;
       setBusy(false);
-      if (fromVoice && activeRef.current && !window.speechSynthesis?.speaking && !controller.signal.aborted) {
-        timerRef.current = setTimeout(() => { if (activeRef.current && !window.speechSynthesis?.speaking) listen(); }, 1200);
+      if (fromVoice && activeRef.current && !speakingRef.current && !controller.signal.aborted) {
+        timerRef.current = setTimeout(() => { if (activeRef.current && !speakingRef.current) listen(); }, 1200);
       }
     }
   }
@@ -281,6 +301,7 @@ export default function Home() {
     if (!voiceAvailable) return;
     if (dictationWantedRef.current) stopDictation();
     activeRef.current = true;
+    setVoiceTranscript('');
     setVoiceMode(true);
     listen();
   }
@@ -288,7 +309,11 @@ export default function Home() {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (dictationWantedRef.current) stopDictation();
-    void sendMessage(input);
+    if (activeRef.current) {
+      recognitionRef.current?.abort?.();
+      setVoiceTranscript('');
+    }
+    void sendMessage(input, activeRef.current);
   }
 
   function clearChat() {
@@ -330,33 +355,28 @@ export default function Home() {
             {busy&&<div className="message assistant"><BrandIcon/><div className="bubble muted"><span className="loadingDots">✦</span> KERO düşünüyor…</div></div>}
           </div>}
         </div>
-        <div className="composerWrap"><form className="composer" onSubmit={submit}>
+        <div className="composerWrap">
+          {voiceMode && <div className={'inlineVoiceDock '+voiceState} role="region" aria-label="KERO sesli görüşme">
+            <div className="miniVoiceSculpture" aria-hidden="true"><span className="miniVoiceRing"/><span className="miniVoiceRing second"/><span className="miniVoiceOrb"><i/></span></div>
+            <div className="inlineVoiceText">
+              <strong aria-live="polite">{voiceState==='listening'?'Seni dinliyorum':voiceState==='thinking'?'KERO düşünüyor':voiceState==='speaking'?'KERO konuşuyor':'Konuşabilirsin'}</strong>
+              <span className={voiceTranscript?'voiceInterim':'voicePrompt'}>{voiceTranscript || 'Konuşman anlık burada, tamamlanınca sohbet içinde görünecek.'}</span>
+            </div>
+            <button type="button" className="inlineVoiceEnd" onClick={endVoice} aria-label="Sesli görüşmeyi bitir" title="Sesli görüşmeyi bitir">✕</button>
+          </div>}
+          <form className="composer" onSubmit={submit}>
           <span className="composerStar" aria-hidden="true">✦</span>
           <input aria-label="Mesaj" placeholder={dictating?'Dinliyorum, konuşabilirsin…':"KERO'ya bir şey sor…"} value={input} onChange={e=>{ if (dictationWantedRef.current) stopDictation(); setInput(e.target.value); }}/>
-          <button type="button" className={'dictateToggle'+(dictating?' active':'')} onClick={toggleDictation} disabled={!voiceAvailable || busy} aria-label={dictating?'Sesle yazmayı durdur':'Sesle yaz'} aria-pressed={dictating} title={dictating?'Sesle yazmayı durdur':'Sesle yaz: Konuşman mesaj kutusuna yazılır'}>
+          <button type="button" className={'dictateToggle'+(dictating?' active':'')} onClick={toggleDictation} disabled={!voiceAvailable || busy || voiceMode} aria-label={dictating?'Sesle yazmayı durdur':'Sesle yaz'} aria-pressed={dictating} title={dictating?'Sesle yazmayı durdur':'Sesle yaz: Konuşman mesaj kutusuna yazılır'}>
             <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4m-4 0h8" stroke="currentColor" fill="none" strokeWidth="1.8" strokeLinecap="round"/></svg>
           </button>
-          <button type="button" className="voiceToggle" onClick={toggleVoice} disabled={!voiceAvailable} title={voiceAvailable?'Sesli görüşmeyi aç':'Tarayıcı sesli sohbeti desteklemiyor'} aria-label="Sesli görüşmeyi aç">
+          <button type="button" className={'voiceToggle'+(voiceMode?' active':'')} onClick={toggleVoice} disabled={!voiceAvailable || (busy && !voiceMode)} title={voiceMode?'Sesli görüşmeyi bitir':voiceAvailable?'Sesli görüşmeyi aç':'Tarayıcı sesli sohbeti desteklemiyor'} aria-label={voiceMode?'Sesli görüşmeyi bitir':'Sesli görüşmeyi aç'} aria-pressed={voiceMode}>
             <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="M4 8a9 9 0 0 0 0 8M20 8a9 9 0 0 1 0 8M7 5a11 11 0 0 0 0 14M17 5a11 11 0 0 1 0 14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>
           </button>
           <button type="submit" className="sendButton" disabled={busy || !input.trim()} aria-label="Gönder">↑</button>
         </form><small className={dictationNotice?'dictationError':dictating?'dictationHint':''} aria-live="polite">{dictationNotice || (dictating?'🎙️ Sesle yazma açık. Konuşman otomatik gönderilmez; metni kontrol edip Gönder\'e bas.':'KERO şu an test yanıtları vermektedir. Önemli bilgileri doğrulayın.')}</small></div>
       </section>
-      {voiceMode && <div className={'voiceOverlay state-'+voiceState} role="dialog" aria-modal="true" aria-label="KERO sesli sohbet">
-        <LightWaves/>
-        <header className="voiceTop"><div className="voiceBrand"><BrandIcon/><strong>KERO</strong><span>VOICE</span></div><button className="closeVoice" onClick={endVoice} aria-label="Sesli sohbeti kapat">✕</button></header>
-        <div className="voiceStage">
-          <div className="voiceEyebrow"><span className="statusDot"/> KERO SESLİ ASİSTAN</div>
-          <div className={'voiceSculpture '+voiceState} aria-hidden="true">
-            <span className="voiceHalo"/><span className="orbRing ringA"/><span className="orbRing ringB"/><span className="orbRing ringC"/><span className="glowPoint first"/><span className="glowPoint second"/>
-            <div className="voiceOrb"><div className="orbSweep"/><div className="orbCore"/><div className="orbHighlight"/></div>
-          </div>
-          <div className="voiceStatus" aria-live="polite">{voiceState==='listening'?'Seni dinliyorum':voiceState==='thinking'?'Düşünüyorum':voiceState==='speaking'?'Konuşuyorum':'Hazırım, konuşabilirsin'}</div>
-          <div className="voiceSubtitle">Sesinle konuş, KERO seni dinlesin.</div>
-          <div className={'audioBars '+voiceState} aria-hidden="true">{Array.from({length:23},(_,i)=><span key={i} style={{animationDelay:(i*-45)+'ms'}}/>)}</div>
-        </div>
-        <div className="voiceActions"><button className="endVoice" onClick={endVoice}>■ &nbsp; Görüşmeyi bitir</button><small>Ses işleme özellikleri tarayıcına bağlıdır.</small></div>
-      </div>}
+
     </main>
   );
 }
