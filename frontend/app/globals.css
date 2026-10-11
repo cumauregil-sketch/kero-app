@@ -28,3 +28,10 @@
 @media(max-width:660px){.inlineVoiceDock{min-height:76px;gap:12px;padding:11px;margin-bottom:12px;border-radius:18px}.miniVoiceSculpture{width:43px;height:43px;flex-basis:43px}.miniVoiceOrb{width:32px;height:32px}.inlineVoiceText strong{font-size:11px}.inlineVoiceText span{font-size:11px}.inlineVoiceEnd{width:27px;height:27px;flex-basis:27px}}
 
 .pilotAccess{max-width:520px;margin:0 auto 16px;padding:15px;border:1px solid #8db1f464;border-radius:17px;background:#192541f5;box-shadow:0 10px 35px #0008;display:flex;flex-direction:column;gap:10px}.pilotAccess strong{font-size:11px;letter-spacing:.12em;color:#e5f1ff}.pilotAccess span{font-size:12px;color:#b3c8e6}.pilotAccess div{display:flex;gap:8px}.pilotAccess input{min-width:0;flex:1;padding:10px;border:1px solid #a4b9ea70;background:#0e1730;border-radius:10px;color:white}.pilotAccess button{padding:0 15px;border:0;border-radius:10px;background:linear-gradient(120deg,#4884eb,#6a52c3);color:white;cursor:pointer}.pilotAccess button:disabled{opacity:.55}
+
+/* Opt-in local voice clone; browser speech is the fallback. */
+.ownVoiceToggle{flex:0 0 auto;max-width:115px;padding:8px 10px;border:1px solid #8bbdff62;border-radius:12px;background:#29437182;color:#d2eaff;font-size:11px;font-weight:600;cursor:pointer}
+.ownVoiceToggle:hover{background:#4764a4a6}
+.ownVoiceToggle.active{border-color:#93e4d6;background:#367b7480;color:#d6fff5}
+.inlineVoiceText .ownVoiceNotice{font-size:10px;color:#e2c99c;max-height:3.5em;overflow-y:auto}
+@media(max-width:660px){.inlineVoiceDock{gap:7px}.ownVoiceToggle{max-width:76px;font-size:10px;padding:6px 5px}.miniVoiceSculpture{width:35px;height:35px;flex-basis:35px}.inlineVoiceText{min-width:70px}}
