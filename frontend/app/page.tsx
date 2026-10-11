@@ -184,14 +184,12 @@ export default function Home() {
         <div className="sidebarNav">
           <span className="navHeading">ÇALIŞMA ALANI</span>
           <button className="navLink active" type="button" onClick={()=>{endVoice();}}><span className="navGlyph">▧</span><span className="navText">Sohbet</span></button>
-          <button className="navLink" type="button" onClick={toggleVoice} disabled={!voiceAvailable}><span className="navGlyph">◉</span><span className="navText">Sesli görüşme</span></button>
         </div>
         <div className="sidebarBottom"><div className="online"><span className="statusDot"/><strong>KERO HAZIR</strong></div><small>Sohbetler bu cihazda saklanır.</small></div>
       </aside>
       <section className="workspace">
         <LightWaves/>
         <header className="topbar"><div className="topName"><span className="topSpark">✦</span><strong>KERO</strong><span className="divider"/>Akıllı çalışma alanın</div>
-          <button className="topVoice" type="button" onClick={toggleVoice} disabled={!voiceAvailable}><span aria-hidden="true">◉</span><span className="topVoiceText">Sesli görüşme</span></button>
         </header>
         <div className={'messageArea '+(isWelcome?'welcomeArea':'')} ref={scrollRef}>
           {!hydrated ? null : isWelcome ? <div className="welcomeHero">
