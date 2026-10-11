@@ -7,6 +7,14 @@ type VoiceState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
 const welcome: Message = { role: 'assistant', content: 'Merhaba, ben KERO. Nasıl yardımcı olabilirim?' };
 
+
+function BrandIcon({large=false}:{large?:boolean}) {
+  return <span className={large?'kMark large':'kMark'} aria-hidden="true"><img src="/kero-mark.svg" alt="" /></span>;
+}
+function LightWaves() {
+  return <div className="lightWaves" aria-hidden="true"><i/><i/><i/><i/><b/></div>;
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([welcome]);
   const [input, setInput] = useState('');
@@ -158,40 +166,63 @@ export default function Home() {
     setMessages([welcome]);
   }
 
+  const isWelcome = messages.length===1 && messages[0].role==='assistant' && messages[0].content===welcome.content;
   return (
     <main className="app">
       <aside className="sidebar">
-        <div className="brand"><span className="brandMark">✦</span><span>KERO</span></div>
-        <button className="newChat" onClick={clearChat}>＋ Yeni sohbet</button>
-        <div className="sidebarBottom"><span className="statusDot" /> Yapay zekâ asistanın</div>
+        <div className="brand"><BrandIcon/><div><strong>KERO</strong><small>YAPAY ZEKÂ ASİSTANI</small></div></div>
+        <button className="newChat" onClick={clearChat}><span className="plus">＋</span><span className="navText">Yeni sohbet</span></button>
+        <div className="sidebarNav">
+          <span className="navHeading">ÇALIŞMA ALANI</span>
+          <button className="navLink active" type="button" onClick={()=>{endVoice();}}><span className="navGlyph">▧</span><span className="navText">Sohbet</span></button>
+          <button className="navLink" type="button" onClick={toggleVoice} disabled={!voiceAvailable}><span className="navGlyph">◉</span><span className="navText">Sesli görüşme</span></button>
+        </div>
+        <div className="sidebarBottom"><div className="online"><span className="statusDot"/> KERO arayüzü hazır</div><small>Sohbetler bu cihazda saklanır.</small></div>
       </aside>
       <section className="workspace">
-        <header className="topbar"><strong>KERO</strong><span>Akıllı asistan</span></header>
-        <div className="messageArea" ref={scrollRef}>
-          <div className="messages">
-            {messages.map((message, index) => (
-              <div key={index} className={`message ${message.role}`}>
-                {message.role === 'assistant' && <span className="messageSymbol">✦</span>}
-                <div className="bubble">{message.content}</div>
-              </div>
-            ))}
-            {busy && <div className="message assistant"><span className="messageSymbol">✦</span><div className="bubble muted">KERO düşünüyor…</div></div>}
-          </div>
+        <LightWaves/>
+        <header className="topbar"><div className="topName"><span className="topSpark">✦</span><strong>KERO</strong><span className="divider"/>Akıllı çalışma alanın</div>
+          <button className="topVoice" type="button" onClick={toggleVoice} disabled={!voiceAvailable}><span aria-hidden="true">◉</span><span className="topVoiceText">Sesli görüşme</span></button>
+        </header>
+        <div className={'messageArea '+(isWelcome?'welcomeArea':'')} ref={scrollRef}>
+          {isWelcome ? <div className="welcomeHero">
+            <div className="heroIcon"><span className="orbit orbit1"/><span className="orbit orbit2"/><BrandIcon large/></div>
+            <div className="heroEyebrow">✧ &nbsp; INTELLIGENCE IN MOTION &nbsp; ✧</div>
+            <h1>Bir fikrin varsa, <span>birlikte büyütelim.</span></h1>
+            <p>Sor, keşfet, üret. Her düşünce için daha akıllı bir başlangıç.</p>
+            <div className="suggestions">
+              <button type="button" onClick={()=>setInput('Yeni bir iş fikrini birlikte geliştirelim.')}><span>✧</span><strong>Bir fikir geliştirelim</strong><em>↗</em></button>
+              <button type="button" onClick={()=>setInput('Bir web uygulaması geliştirmeme yardım et.')}><span>⌘</span><strong>Birlikte kod yazalım</strong><em>↗</em></button>
+              <button type="button" onClick={()=>setInput('Bir konuyu derinlemesine inceleyelim.')}><span>◈</span><strong>Bir konuyu inceleyelim</strong><em>↗</em></button>
+            </div>
+          </div> : <div className="messages">
+            {messages.map((message, index) => <div key={index} className={'message '+message.role}>{message.role==='assistant'&&<BrandIcon/>}<div className="bubble">{message.content}</div></div>)}
+            {busy&&<div className="message assistant"><BrandIcon/><div className="bubble muted"><span className="loadingDots">✦</span> KERO düşünüyor…</div></div>}
+          </div>}
         </div>
-        <div className="composerWrap">
-          <form className="composer" onSubmit={submit}>
-            <input aria-label="Mesaj" placeholder="KERO'ya bir şey sor…" value={input} onChange={e => setInput(e.target.value)} />
-            <button type="button" className="voiceToggle" onClick={toggleVoice} title="Sesli sohbet" aria-label="Sesli sohbet">◉</button>
-            <button type="submit" className="sendButton" disabled={busy || !input.trim()} aria-label="Gönder">↑</button>
-          </form>
-          <small>KERO yanıtları önemli konularda doğrulanmalıdır.</small>
-        </div>
+        <div className="composerWrap"><form className="composer" onSubmit={submit}>
+          <span className="composerStar" aria-hidden="true">✦</span>
+          <input aria-label="Mesaj" placeholder="KERO'ya bir şey sor…" value={input} onChange={e=>setInput(e.target.value)}/>
+          <button type="button" className="voiceToggle" onClick={toggleVoice} disabled={!voiceAvailable} title={voiceAvailable?'Sesli sohbet':'Tarayıcı sesli sohbeti desteklemiyor'} aria-label="Sesli sohbet">
+            <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4m-4 0h8" stroke="currentColor" fill="none" strokeWidth="1.8" strokeLinecap="round"/></svg>
+          </button>
+          <button type="submit" className="sendButton" disabled={busy || !input.trim()} aria-label="Gönder">↑</button>
+        </form><small>KERO şu an test yanıtları vermektedir. Önemli bilgileri doğrulayın.</small></div>
       </section>
-      {voiceMode && <div className="voiceOverlay" role="dialog" aria-modal="true" aria-label="KERO sesli sohbet">
-        <button className="closeVoice" onClick={endVoice} aria-label="Sesli sohbeti kapat">✕</button>
-        <div className={`voiceOrb ${voiceState}`} aria-hidden="true"><div className="orbCore" /></div>
-        <div className="voiceStatus">{voiceState === 'listening' ? 'Dinliyorum' : voiceState === 'thinking' ? 'Düşünüyorum' : voiceState === 'speaking' ? 'Konuşuyorum' : 'Sesli sohbet hazır'}</div>
-        <button className="endVoice" onClick={endVoice}>Görüşmeyi bitir</button>
+      {voiceMode && <div className={'voiceOverlay state-'+voiceState} role="dialog" aria-modal="true" aria-label="KERO sesli sohbet">
+        <LightWaves/>
+        <header className="voiceTop"><div className="voiceBrand"><BrandIcon/><strong>KERO</strong><span>VOICE</span></div><button className="closeVoice" onClick={endVoice} aria-label="Sesli sohbeti kapat">✕</button></header>
+        <div className="voiceStage">
+          <div className="voiceEyebrow"><span className="statusDot"/> KERO SESLİ ASİSTAN</div>
+          <div className={'voiceSculpture '+voiceState} aria-hidden="true">
+            <span className="voiceHalo"/><span className="orbRing ringA"/><span className="orbRing ringB"/><span className="orbRing ringC"/><span className="glowPoint first"/><span className="glowPoint second"/>
+            <div className="voiceOrb"><div className="orbSweep"/><div className="orbCore"/><div className="orbHighlight"/></div>
+          </div>
+          <div className="voiceStatus" aria-live="polite">{voiceState==='listening'?'Seni dinliyorum':voiceState==='thinking'?'Düşünüyorum':voiceState==='speaking'?'Konuşuyorum':'Hazırım, konuşabilirsin'}</div>
+          <div className="voiceSubtitle">Sesinle konuş, KERO seni dinlesin.</div>
+          <div className={'audioBars '+voiceState} aria-hidden="true">{Array.from({length:23},(_,i)=><span key={i} style={{animationDelay:(i*-45)+'ms'}}/>)}</div>
+        </div>
+        <div className="voiceActions"><button className="endVoice" onClick={endVoice}>■ &nbsp; Görüşmeyi bitir</button><small>Ses işleme özellikleri tarayıcına bağlıdır.</small></div>
       </div>}
     </main>
   );
