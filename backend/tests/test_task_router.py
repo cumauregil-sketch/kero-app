@@ -98,6 +98,30 @@ class ProposeRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(seen[0][2]["generationConfig"]["responseMimeType"], "application/json")
         self.assertEqual(seen[0][2]["contents"][0]["parts"][0]["text"], "Python kodu yaz")
 
+    async def test_router_uses_history_only_as_context(self):
+        seen = []
+        def handler(request):
+            seen.append(json.loads(request.content))
+            return httpx.Response(200, json=provider_reply(valid_plan(
+                intent="planning", specialists=["planner"]
+            )))
+        history = [
+            {"role": "user", "content": "Bir proje kuracağım"},
+            {"role": "assistant", "content": "Nereden başlayalım?"},
+        ]
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            route = await propose_route(
+                "Bunun için plan hazırla",
+                api_key="test-only",
+                model="test-model",
+                client=client,
+                history=history,
+            )
+        self.assertEqual(route.intent, "planning")
+        prompt = json.loads(seen[0]["contents"][0]["parts"][0]["text"])
+        self.assertEqual(prompt["classify_latest_user_message"], "Bunun için plan hazırla")
+        self.assertEqual(prompt["previous_context_only"], history)
+
     async def test_provider_http_failure_is_not_silently_accepted(self):
         async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(429))) as client:
             with self.assertRaises(httpx.HTTPStatusError):
