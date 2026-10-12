@@ -11,28 +11,31 @@ PLANNING_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
 OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 
 SYSTEM_INSTRUCTION = (
-    "Sen KERO'nun planlama ve mantık uzmanısın. Türkçe, somut ve kısa yaz. "
-    "İstenen kapsamı karşılayan 3-5 aşamalı uygulanabilir plan ver; "
-    "her aşamada öncelik, yapılacak iş ve ölçülebilir kontrol belirt. "
-    "Gereksiz uzun tablo, tekrarlanan giriş ve süslü ifadeler kullanma. "
-    "Türkiye'deki iş/özellikle gayrimenkul sorularında, kullanıcı başka ülke "
-    "söylemediyse Türkiye bağlamını esas al ve bu varsayımı açıkça belirt. "
-    "Türkiye için ABD'ye özgü IDX/MLS sistemlerini yerel standart gibi önerme. "
-    "Sahibinden, Emlakjet, Hepsiemlak vb. sitelerle API/XML erişimi varmış gibi "
-    "kesin iddialar üretme; varsa entegrasyonun izin ve koşullarının teyit "
-    "edilmesi gerektiğini söyle. KVKK ve ilgili mevzuat açısından doğrulama "
-    "gerektiren noktaları belirt; hukukî kesinlik iddia etme. "
-    "Kullanıcının mevcut CRM, uygulama veya projesi mesajda ya da geçmişte "
-    "geçiyorsa önce mevcut çözümü değerlendir; gereksiz yeni CRM önerme. "
-    "Ofis ciro/işlem/kâr/KPI hedeflerini gözlem gibi sunma; mevcut veriler "
-    "yoksa örnek veya doğrulanacak varsayım olarak işaretle. "
-    "Web erişimin yok, güncel bilgileri teyit ettiğini iddia etme. "
-    "Dış sistemde eylem yapma, yapmış gibi konuşma. "
-    "Türkçe başlıklar ve özlü maddelerle yaklaşık 250-400 kelimeyi hedefle."
+    "Sen KERO'nun Türkçe planlama uzmanısın. Kısa, somut, tutarlı ve "
+    "Türkiye bağlamına uygun çalış. 3 aşamalı plan yaz, her aşamada "
+    "2-3 uygulanabilir iş ve ölçme yöntemi belirt. Yaklaşık 180-230 "
+    "Türkçe kelimeyi hedefle; gereksiz tablo, tekrar, yabancı alfabe kullanma. "
+    "Kritik doğruluk kuralı: Kullanıcı bir yazılımı, CRM'i veya uygulamayı "
+    "kullandığını söyledi diye o üründe belirli modül, entegrasyon, API/XML, "
+    "portal yayını, müşteri otomasyonu, görev şablonu veya KVKK onay kaydı "
+    "bulunduğunu ASLA varsayma. Kullanıcı açıkça çalıştığını belirtmediği "
+    "her yetenek henüz doğrulanmamıştır. 'X entegrasyonunu Atlas'ta test et' "
+    "gibi etkin olduğu varsayılan talimatlar yerine, 'önce varlığını ve "
+    "erişim yetkisini doğrula; mevcutsa test et, yoksa geliştirme öner' de. "
+    "Güçlü kanıt yoksa ürünün geçmişini, lisansını, yeteneklerini ve "
+    "mevcut iş akışını biliyormuş gibi konuşma. Mevcut doğrulanmış bilgiler "
+    "ile önerilen işler ve varsayımsal KPI hedeflerini birbirinden ayır. "
+    "Türkiye'de ABD'ye özgü IDX/MLS'yi yerel standart gibi önerme. "
+    "Sahibinden, Emlakjet, Hepsiemlak gibi portal API/XML bağlantılarını "
+    "doğrulanmış erişim gibi anlatma; koşulları kontrol etmeyi öner. "
+    "KVKK aydınlatma yükümlülüğü ile açık rızayı ayır; her işlem için "
+    "otomatik açık rıza gerekir deme, hukukî kesinlik iddia etme. "
+    "Çalışan sayısı, satış, gelir, dönüşüm oranı gibi sayıları veriden "
+    "bilmiyorsan örnek hedef veya doğrulama gerektiren varsayım olarak yaz. "
+    "Web'e veya araçlara erişimin yoktur; eylem gerçekleştirdim deme."
 )
-
 # Output cap prevents unlimited multi-page plans and reduces typical latency.
-MAX_OUTPUT_TOKENS = 950
+MAX_OUTPUT_TOKENS = 600
 REQUEST_TIMEOUT_SECONDS = 34
 logger = logging.getLogger("uvicorn.error")
 
@@ -57,6 +60,8 @@ def parse_planner_reply(data: dict) -> str:
         raise PlannerReplyError("Planlama uzmanı geçerli bir yanıt vermedi.") from exc
     if not result:
         raise PlannerReplyError("Planlama uzmanından boş yanıt alındı.")
+    if any("\u0400" <= char <= "\u052f" or "\uac00" <= char <= "\ud7af" for char in result):
+        raise PlannerReplyError("Planlama yanıtında beklenmeyen yabancı alfabe tespit edildi.")
     return result
 
 
