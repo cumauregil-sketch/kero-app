@@ -47,6 +47,34 @@ class PlannerApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("tools", seen[0][2])
         self.assertNotIn("tool_choice", seen[0][2])
 
+    async def test_past_messages_are_sent_with_bounded_history(self):
+        received = []
+        def handler(req):
+            received.append(json.loads(req.content))
+            return httpx.Response(200, json={
+                "choices": [{"message": {"content": "Plan tamam"}}]
+            })
+
+        history = [
+            {"role": "user", "content": "Gayrimenkul ofisi için proje"},
+            {"role": "assistant", "content": "Önceliğin nedir?"},
+        ]
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            result = await create_plan(
+                "Üç aşamalı plan yap",
+                api_key="test-key",
+                client=client,
+                history=history,
+            )
+        self.assertEqual(result, "Plan tamam")
+        messages = received[0]["messages"]
+        self.assertEqual(
+            [m["role"] for m in messages],
+            ["system", "user", "assistant", "user"],
+        )
+        self.assertEqual(messages[-2]["content"], "Önceliğin nedir?")
+        self.assertEqual(messages[-1]["content"], "Üç aşamalı plan yap")
+
     async def test_provider_rate_limit_is_propagated(self):
         async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(429))) as client:
             with self.assertRaises(httpx.HTTPStatusError):
