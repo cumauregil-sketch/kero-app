@@ -1,0 +1,51 @@
+.betaAdmin{min-height:100dvh;color:#e9eeff;background:radial-gradient(ellipse 80% 45% at 65% -15%,#4255b52d,transparent),radial-gradient(ellipse 60% 60% at -10% 100%,#8754bc1c,transparent),#080c16;padding:28px 24px 60px}
+.betaShell{max-width:1130px;margin:auto}
+.betaHeader{display:flex;align-items:center;justify-content:space-between;padding:13px 2px 27px;border-bottom:1px solid #a9c2ff22;gap:15px}
+.betaWordmark{display:flex;align-items:center;gap:13px;text-decoration:none;color:#eff6ff}
+.betaMark{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;color:#13223b;background:linear-gradient(145deg,#d7efff,#90b8fe);font-size:28px;font-weight:800;box-shadow:0 4px 35px #8dbfff32}
+.betaWordmark strong{font-size:24px;letter-spacing:.17em;display:block}.betaWordmark small{font-size:9px;letter-spacing:.2em;color:#8da2c4;display:block;margin-top:3px}
+.betaHeaderRight{display:flex;align-items:center;gap:18px}.betaPhase{font-size:11px;letter-spacing:.11em;color:#9ac4ff;border:1px solid #92b9ff35;border-radius:999px;padding:9px 14px;background:#7da9ff0a}
+.betaTextButton{color:#b7c9ee;background:transparent;border:0;padding:9px 1px}
+.betaHeading{padding:51px 2px 30px}.betaOverline,.betaSectionEyebrow{display:block;color:#a2b5ec;letter-spacing:.2em;font-size:10px;font-weight:750}
+.betaHeading h1{font-size:clamp(28px,4vw,43px);letter-spacing:-.045em;font-weight:740;margin:12px 0 9px}
+.betaHeading p{font-size:14px;color:#9caec9;line-height:1.6}
+.betaCard{background:linear-gradient(155deg,#151e33e8,#101625ed);border:1px solid #8fa9e533;border-radius:20px;padding:25px;box-shadow:0 20px 65px #0002}
+.betaCard h2{font-size:20px;letter-spacing:-.02em;margin:12px 0}
+.betaCard p{font-size:13px;line-height:1.65;color:#aab9d3}
+.betaStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px;margin-bottom:20px}
+.betaMetric{min-height:157px;display:flex;flex-direction:column;justify-content:space-between}
+.betaMetric>span{font-size:12px;color:#a9b9d6}
+.betaMetric strong{font-size:43px;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.betaMetric strong em{font-size:17px;font-style:normal;color:#8193b0}
+.betaMetric small{font-size:11px;color:#8094b5}.betaAvailable{border-color:#76c8c35c;background:linear-gradient(155deg,#19303acc,#102329e8)}.betaAvailable strong{color:#90eddb}
+.betaColumns{display:grid;grid-template-columns:minmax(300px,0.87fr) minmax(0,1.13fr);align-items:start;gap:20px}
+.betaForm{display:flex;flex-direction:column;gap:10px;margin-top:24px}
+.betaAdmin label{color:#c3cfe8;font-size:12px;font-weight:650}
+.betaAdmin input,.betaAdmin select{width:100%;height:45px;padding:0 14px;color:#f0f5ff;background:#0a1224;border:1px solid #8ea5d64f;border-radius:10px;outline:0;margin-bottom:10px}
+.betaAdmin input:focus,.betaAdmin select:focus{border-color:#9ac7ff;box-shadow:0 0 0 3px #599cf525}
+.betaAdmin input::placeholder{color:#667b9f}.betaAdmin select{appearance:auto}
+.betaPrimary,.betaSecondary{height:43px;border-radius:10px;font-weight:680;border:1px solid transparent;padding:0 17px}
+.betaPrimary{color:#0e1d3d;background:linear-gradient(105deg,#a9d9ff,#94b4ff);box-shadow:0 5px 30px #789eff26}
+.betaPrimary:not(:disabled):hover{filter:brightness(1.1)}.betaSecondary{background:#6c88c71f;color:#d3e3ff;border-color:#8ba9eb50}
+.betaSecondary:not(:disabled):hover{border-color:#bad5ff}
+.betaListTitle{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px}.betaListTitle h2{margin-bottom:0}
+.betaInvitationList{max-height:510px;overflow:auto;scrollbar-color:#35496b transparent;scrollbar-width:thin}
+.betaInvitation{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #92a9db25;padding:16px 0}
+.betaInviteIdentity{min-width:0}.betaInviteIdentity strong{display:block;font-size:14px;overflow-wrap:anywhere}
+.betaInviteIdentity small{display:block;font-size:11px;color:#8092b2;margin-top:7px}
+.betaInviteActions{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0}
+.betaState{font-size:10px;color:#d6dbf2;border:1px solid #a4b1d449;border-radius:999px;padding:6px 9px;white-space:nowrap}
+.betaState-pending{color:#b6d3ff;border-color:#8daff26b;background:#6694dc16}
+.betaState-used{color:#a3ebc9;border-color:#6acb9959;background:#4dad8a15}
+.betaState-revoked,.betaState-expired{color:#a3abc0}
+.betaRevoke{font-size:11px;background:transparent;border:0;color:#ffc0c8;padding:4px 6px}
+.betaRevoke:hover{text-decoration:underline}
+.betaEmpty{color:#8e9bb8;padding:50px 0;text-align:center;font-size:13px}
+.betaIssued{margin-top:22px;padding:16px;border:1px solid #80d9bd55;background:#71c1ae0b;border-radius:12px;display:flex;flex-direction:column;gap:10px}
+.betaIssued strong{font-size:13px}.betaIssued p{font-size:12px;margin:0}.betaIssued code{font-size:12px;color:#f0faff;word-break:break-all;line-height:1.5;padding:11px;background:#070f1b;border-radius:8px}
+.betaAlert{margin-top:16px;border-radius:12px;padding:13px 17px;font-size:13px}.betaError{background:#c6595918;border:1px solid #d780804c;color:#ffd0d0}.betaSuccess{background:#3fac8c1a;border:1px solid #64d5ab55;color:#c2ffe4}
+.betaLogin{max-width:530px;margin:0 auto}.betaLogin form{display:flex;flex-direction:column;gap:12px;margin-top:25px}.betaLogin form input{margin:0}
+.betaHint{font-size:11px;line-height:1.6;margin-top:19px;color:#8496b5}
+.betaFooter{text-align:center;color:#6f809d;font-size:11px;margin-top:35px}.betaFooter a{color:#a9cafa}
+@media (max-width:780px){.betaAdmin{padding:15px 15px 40px}.betaHeading{padding-top:34px}.betaStats{grid-template-columns:1fr;gap:10px}.betaMetric{min-height:105px}.betaMetric strong{font-size:35px}.betaColumns{grid-template-columns:1fr}.betaCard{padding:20px}.betaPhase{font-size:9px;padding:7px}.betaHeaderRight{gap:8px}.betaHeader{flex-wrap:wrap}}
+@media (prefers-reduced-motion:reduce){.betaAdmin *{animation:none!important;transition:none!important}}

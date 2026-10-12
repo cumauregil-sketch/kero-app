@@ -12,11 +12,14 @@ from pydantic import BaseModel, Field
 from .task_router import InvalidRouteError, RoutePlan, propose_route
 from .planner import PlannerReplyError, create_plan
 from .orchestrator import maybe_delegate_planning
+from .beta_admin import router as beta_admin_router
 
 PLANNING_DEADLINE_SECONDS = 24.0
 logger = logging.getLogger("uvicorn.error")
 
 app = FastAPI(title="KERO API", version="0.2.1")
+# Beta owner API remains unavailable until explicitly activated with durable storage.
+app.include_router(beta_admin_router)
 # Pilot-only per-IP throttling, per-worker. Replace with account quotas before public launch.
 request_times: dict[str, deque[float]] = {}
 
