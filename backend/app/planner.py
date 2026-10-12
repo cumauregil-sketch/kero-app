@@ -3,7 +3,7 @@
 import httpx
 
 # Pin the free variant so no paid OpenRouter model can be selected by request data.
-LING_MODEL = "inclusionai/ling-3.1-flash:free"
+PLANNING_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
 OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 
 SYSTEM_INSTRUCTION = (
@@ -47,7 +47,7 @@ async def create_plan(
 ) -> str:
     """Obtain a text-only planning suggestion from the *free* Ling model."""
     body = {
-        "model": LING_MODEL,
+        "model": PLANNING_MODEL,
         "messages": [
             {"role": "system", "content": SYSTEM_INSTRUCTION},
             {"role": "user", "content": task},
