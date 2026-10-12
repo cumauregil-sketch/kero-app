@@ -51,6 +51,19 @@ class ChatEndpointTests(unittest.TestCase):
         self.assertEqual(response.json()["reply"], "Gemini yanıtı")
         delegated.assert_not_awaited()
 
+    def test_gemini_instruction_does_not_assume_product_features(self):
+        with self.environment(False):
+            with patch("app.main.httpx.AsyncClient") as http:
+                endpoint = http.return_value.__aenter__.return_value
+                endpoint.post = AsyncMock(return_value=fake_gemini())
+                response = self.send("Cans Atlas için iş planı hazırla")
+                request_body = endpoint.post.await_args.kwargs["json"]
+
+        self.assertEqual(response.status_code, 200)
+        policy = request_body["systemInstruction"]["parts"][0]["text"]
+        for required in ("varsayma", "mevcut özellik", "CRM", "API/XML", "IDX/MLS"):
+            self.assertIn(required, policy)
+
     def test_enabled_planning_returns_specialist_response_with_history(self):
         history = [
             {"role": "user", "content": "Bir emlak ofisim var"},
