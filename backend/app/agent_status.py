@@ -6,7 +6,7 @@ Future roles must only be announced once their actual execution begins.
 from collections.abc import Callable
 from contextvars import ContextVar, Token
 
-AGENT_NAMES = {"mirza": "Mirza", "seko": "Seko"}
+AGENT_NAMES = {"mirza": "Mirza", "seko": "Seko", "alex": "Alex"}
 _StatusSink = Callable[[dict[str, str]], None]
 _sink: ContextVar[_StatusSink | None] = ContextVar("kero_status_sink", default=None)
 
