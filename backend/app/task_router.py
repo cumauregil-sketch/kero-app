@@ -4,7 +4,7 @@ import json
 from typing import Literal
 
 import httpx
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, ValidationError
 
 Intent = Literal["chat", "research", "coding", "planning", "analysis"]
 Specialist = Literal["researcher", "coder", "planner", "analyst", "reviewer"]
@@ -29,10 +29,12 @@ ROUTE_SCHEMA = {
 
 
 class RoutePlan(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     intent: Intent
     specialists: list[Specialist] = Field(max_length=3)
-    needs_web: bool
-    needs_approval: bool
+    needs_web: StrictBool
+    needs_approval: StrictBool
     reason: str = Field(min_length=1, max_length=240)
 
 
