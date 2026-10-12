@@ -5,9 +5,13 @@ No tools, deployments or side effects are available to the planning specialist.
 """
 
 from collections.abc import Mapping, Sequence
+import logging
+import time
 
 from .planner import create_plan
 from .task_router import propose_route
+
+logger = logging.getLogger("uvicorn.error")
 
 # Deliberately conservative: false negatives keep the existing Gemini behavior.
 # The keyword filter is not a classifier; Gemini verifies candidate requests.
@@ -45,8 +49,15 @@ async def maybe_delegate_planning(
         return None
 
     context = list(history or [])[-6:]
+    start = time.monotonic()
     route = await propose_route(
         message, api_key=gemini_key, model=gemini_model, history=context
+    )
+    logger.info(
+        "kero_router status=ok intent=%s needs_web=%s elapsed_ms=%d",
+        route.intent,
+        route.needs_web,
+        round((time.monotonic() - start) * 1000),
     )
     if route.intent != "planning" or "planner" not in route.specialists:
         return None
