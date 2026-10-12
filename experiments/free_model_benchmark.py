@@ -10,6 +10,13 @@ OPENROUTER_CANDIDATES = [
     "openai/gpt-oss-20b:free",
     "openai/gpt-oss-120b:free",
 ]
+# Free specialist fallbacks; every one is re-checked against live pricing.
+FREE_FALLBACK_CANDIDATES = [
+    "cohere/north-mini-code:free",
+    "google/gemma-4-31b-it:free",
+    "apodex/apodex-1.1-mini:free",
+    "poolside/laguna-s-2.1:free",
+]
 GEMINI_MODEL = os.getenv("KERO_TEST_GEMINI_MODEL", "gemini-2.5-flash")
 TASKS = {
     "coding": "Python ile verilen sayi listesinin medyanini bulan, bos listeyi ValueError ile reddeden fonksiyon ve 3 unittest yaz. Sadece kod ver.",
@@ -68,10 +75,17 @@ def main():
     except Exception as e:
         print("OpenRouter ucretsiz model listesi dogrulanamadi; OpenRouter testleri atlandi:", type(e).__name__)
         free = {}
-    candidates = [(m, "openrouter") for m in OPENROUTER_CANDIDATES if m in free and os.getenv("OPENROUTER_API_KEY")]
-    qwen = next((m for m in sorted(free) if m.startswith("qwen/") and m.endswith(":free")), None)
-    if qwen and os.getenv("OPENROUTER_API_KEY"):
-        candidates.append((qwen, "openrouter"))
+    # Prioritize requested GPT models if truly free today, then free Qwen,
+    # then verified coding/general-purpose alternatives; cap calls at 4 models.
+    free_qwen = sorted(m for m in free if m.startswith("qwen/") and m.endswith(":free"))
+    eligible = OPENROUTER_CANDIDATES + free_qwen + FREE_FALLBACK_CANDIDATES
+    selected = list(dict.fromkeys(m for m in eligible if m in free))[:4]
+    output["requested_free_gpt_unavailable"] = [m for m in OPENROUTER_CANDIDATES if m not in free]
+    output["tested_free_model_ids"] = selected
+    candidates = [(m, "openrouter") for m in selected] if os.getenv("OPENROUTER_API_KEY") else []
+    print("Verified free candidates:", ", ".join(selected) or "none", flush=True)
+    if output["requested_free_gpt_unavailable"]:
+        print("Requested GPT :free endpoint(s) absent from the zero-price catalog:", ", ".join(output["requested_free_gpt_unavailable"]), flush=True)
     # Gemini is opt-in: free-tier availability is account- and model-specific.
     if os.getenv("KERO_TEST_GEMINI_FREE_CONFIRMED") == "1" and os.getenv("GEMINI_API_KEY"):
         candidates.append((GEMINI_MODEL, "gemini"))
