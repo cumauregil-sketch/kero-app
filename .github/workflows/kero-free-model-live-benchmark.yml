@@ -2,6 +2,11 @@ name: KERO free models live benchmark
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'experiments/free_model_benchmark.py'
+      - '.github/workflows/kero-free-model-live-benchmark.yml'
 
 permissions:
   contents: read
