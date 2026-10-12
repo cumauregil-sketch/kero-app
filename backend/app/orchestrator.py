@@ -9,6 +9,7 @@ import logging
 import time
 
 from .planner import create_plan
+from .agent_status import report_status
 from .task_router import propose_route
 
 logger = logging.getLogger("uvicorn.error")
@@ -49,6 +50,7 @@ async def maybe_delegate_planning(
         return None
 
     context = list(history or [])[-6:]
+    report_status("mirza", "Görevi değerlendiriyor")
     start = time.monotonic()
     route = await propose_route(
         message, api_key=gemini_key, model=gemini_model, history=context
@@ -64,4 +66,5 @@ async def maybe_delegate_planning(
     if route.needs_web:
         return None
 
+    report_status("seko", "Planı hazırlıyor")
     return await create_plan(message, api_key=openrouter_key, history=context)
