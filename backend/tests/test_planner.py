@@ -23,6 +23,13 @@ class PlannerResponseTests(unittest.TestCase):
         with self.assertRaises(PlannerReplyError):
             parse_planner_reply({"choices": []})
 
+    def test_foreign_script_contamination_rejected(self):
+        for content in ("Plan: portfolyo 포트фолyo", "Öncelik: задача"):
+            with self.assertRaises(PlannerReplyError):
+                parse_planner_reply({
+                    "choices": [{"message": {"content": content}}]
+                })
+
     def test_invalid_message_rejected(self):
         with self.assertRaises(PlannerReplyError):
             parse_planner_reply({"choices": [{"message": None}]})
@@ -62,7 +69,7 @@ class PlannerApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertLessEqual(MAX_OUTPUT_TOKENS, 1000)
         self.assertLessEqual(REQUEST_TIMEOUT_SECONDS, 35)
         prompt = requests[0]["messages"][0]["content"]
-        for word in ("Türkiye", "IDX/MLS", "KVKK", "mevcut CRM", "varsayım"):
+        for word in ("Türkiye", "IDX/MLS", "KVKK", "varsayım", "ASLA varsayma", "henüz doğrulanmamıştır"):
             self.assertIn(word, prompt)
         self.assertNotIn("tools", requests[0])
 

@@ -1,5 +1,6 @@
 """HTTP-level chat tests with mocked model replies and zero live API calls."""
 
+import asyncio
 import os
 import unittest
 from types import SimpleNamespace
@@ -80,6 +81,22 @@ class ChatEndpointTests(unittest.TestCase):
                 with patch("app.main.httpx.AsyncClient") as http:
                     http.return_value.__aenter__.return_value.post = AsyncMock(return_value=fake_gemini())
                     response = self.send("Bir iş planı yap")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["reply"], "Gemini yanıtı")
+
+    def test_hard_deadline_prevents_extremely_slow_specialist(self):
+        async def slow_specialist(*args, **kwargs):
+            await asyncio.sleep(0.2)
+            return "This should not be used"
+
+        with self.environment(True):
+            with patch("app.main.PLANNING_DEADLINE_SECONDS", 0.01):
+                with patch("app.main.maybe_delegate_planning", new_callable=AsyncMock) as delegate:
+                    delegate.side_effect = slow_specialist
+                    with patch("app.main.httpx.AsyncClient") as http:
+                        http.return_value.__aenter__.return_value.post = AsyncMock(return_value=fake_gemini())
+                        response = self.send("Bir iş planı yap")
+
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["reply"], "Gemini yanıtı")
 
