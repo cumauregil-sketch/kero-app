@@ -5,7 +5,7 @@ import unittest
 
 import httpx
 
-from app.planner import LING_MODEL, PlannerReplyError, create_plan, parse_planner_reply
+from app.planner import PLANNING_MODEL, PlannerReplyError, create_plan, parse_planner_reply
 
 
 class PlannerResponseTests(unittest.TestCase):
@@ -29,7 +29,7 @@ class PlannerResponseTests(unittest.TestCase):
 
 
 class PlannerApiTests(unittest.IsolatedAsyncioTestCase):
-    async def test_only_free_ling_model_is_requested(self):
+    async def test_only_free_nemotron_model_is_requested(self):
         seen = []
         def handler(req):
             seen.append((str(req.url), req.headers.get("Authorization"), json.loads(req.content)))
@@ -41,8 +41,8 @@ class PlannerApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(seen), 1)
         self.assertEqual(seen[0][0], "https://openrouter.ai/api/v1/chat/completions")
         self.assertEqual(seen[0][1], "Bearer test-key")
-        self.assertEqual(LING_MODEL, "inclusionai/ling-3.1-flash:free")
-        self.assertEqual(seen[0][2]["model"], LING_MODEL)
+        self.assertEqual(PLANNING_MODEL, "nvidia/nemotron-3-ultra-550b-a55b:free")
+        self.assertEqual(seen[0][2]["model"], PLANNING_MODEL)
         self.assertEqual(seen[0][2]["messages"][-1]["content"], "Bir proje planla")
         self.assertNotIn("tools", seen[0][2])
         self.assertNotIn("tool_choice", seen[0][2])
