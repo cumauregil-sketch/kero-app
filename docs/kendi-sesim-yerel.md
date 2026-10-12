@@ -1,6 +1,10 @@
-# KERO kendi sesim: yerel ve ücretsiz ses köprüsü
+# KERO yerel kendi sesim: gelecekte yeniden etkinleştirme notları
 
-Bu seçenek, KERO'nun tarayıcı sesinden kendi sesini taklit eden **Chatterbox Multilingual V3** motoruna geçmesini sağlar. KERO'da sesli görüşme kutusu açıkken **Kendi sesim** düğmesiyle yalnızca bu cihazda etkinleştirilir.
+**Durum (12 Ekim 2026):** KERO arayüzündeki **Kendi sesim** seçeneği geçici olarak kaldırıldı. Sesli sohbet şimdi yalnızca tarayıcının `speechSynthesis` sesini kullanıyor ve `127.0.0.1:8765` üzerindeki yerel motora istek göndermiyor. Tarayıcının kendi seslendirmesi ve mikrofon işlevi korunuyor.
+
+Yerel Chatterbox ses klonunun Windows bilgisayardaki kurulum dosyaları, referans WAV kaydı ve ses modeli **bu değişiklikle silinmedi**. İleride isteğe bağlı bir özellik olarak ayrı bir değişiklikle yeniden bağlanabilir. Mevcut donanımda performans kısıtları devam edebilir.
+
+## Eski yerel ses motoru denemesine ilişkin arşiv bilgisi
 
 - Ses motoru kendi Windows bilgisayarında `127.0.0.1:8765` üzerinde çalışır.
 - Kişisel WAV ses kaydı bu GitHub reposunda **saklanmaz** ve Railway'e **gönderilmez**. Ayrı kişisel kurulum paketinde kalır.
@@ -14,7 +18,7 @@ Bu seçenek, KERO'nun tarayıcı sesinden kendi sesini taklit eden **Chatterbox 
 1. Kişisel `KERO_Kendi_Sesim_Ucretsiz_Test.zip` paketini kendi bilgisayarına indir ve çıkar.
 2. Python 3.11 kur. `BASLAT_WINDOWS.bat` dosyasını çalıştır. Bu komut bağımlılıkları indirir, model ilk kullanımda ayrıca iner.
 3. `http://127.0.0.1:8765/health` adresine git; `"ok":true` ve `"reference_present":true` değerlerini gör.
-4. `https://kero-web-production.up.railway.app` adresinde sesli görüşmeyi aç, ardından **Kendi sesim** seçeneğini aç.
+4. **Artık geçerli değil:** KERO arayüzünden `Kendi sesim` seçeneği kaldırıldı. Yeniden eklenmeden bu adım uygulanamaz.
 5. Kısa bir cümleyle dene. Motorun performansını görmeden 2-3 saat kesintisiz konuşma garantisi verme.
 
 Bu bir test aşamasıdır. Kullanıcı üyeliği, merkezi ortak kota, telefon desteği ve servis düzeyinde sürekli ses henüz tamamlanmamıştır.
