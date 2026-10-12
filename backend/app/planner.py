@@ -1,5 +1,7 @@
 """Free-only OpenRouter planning specialist; this module never runs tools or changes files."""
 
+from collections.abc import Mapping, Sequence
+
 import httpx
 
 # Pin the free variant so no paid OpenRouter model can be selected by request data.
@@ -44,14 +46,21 @@ async def create_plan(
     *,
     api_key: str,
     client: httpx.AsyncClient | None = None,
+    history: Sequence[Mapping[str, str]] | None = None,
 ) -> str:
-    """Obtain a text-only planning suggestion from the *free* Ling model."""
+    """Obtain a text-only planning suggestion from the pinned free model."""
+    # Keep only a small, validated part of the dialogue for continuity.
+    messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
+    for item in (history or [])[-6:]:
+        role = item.get("role")
+        text = item.get("content")
+        if role in ("user", "assistant") and isinstance(text, str) and text.strip():
+            messages.append({"role": role, "content": text[:800]})
+    messages.append({"role": "user", "content": task})
+
     body = {
         "model": PLANNING_MODEL,
-        "messages": [
-            {"role": "system", "content": SYSTEM_INSTRUCTION},
-            {"role": "user", "content": task},
-        ],
+        "messages": messages,
         "max_tokens": 1200,
         "temperature": 0.2,
     }
@@ -71,5 +80,5 @@ async def create_plan(
 
     if client is not None:
         return await send(client)
-    async with httpx.AsyncClient(timeout=65) as created_client:
+    async with httpx.AsyncClient(timeout=45) as created_client:
         return await send(created_client)
