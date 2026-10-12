@@ -1,5 +1,6 @@
 import asyncio
 import hmac
+import json
 import logging
 import os
 import time
@@ -8,10 +9,12 @@ from collections import deque
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from .task_router import InvalidRouteError, RoutePlan, propose_route
 from .planner import PlannerReplyError, create_plan
 from .orchestrator import maybe_delegate_planning
+from .agent_status import register_status_sink, reset_status_sink, report_status
 
 PLANNING_DEADLINE_SECONDS = 24.0
 logger = logging.getLogger("uvicorn.error")
@@ -89,6 +92,9 @@ async def chat(payload: ChatRequest, request: Request, x_kero_access_code: str |
             logger.warning("kero_specialist status=error fallback=gemini")
         # On specialist failure or deadline, use the existing Gemini chat path.
 
+    # This is a real Gemini request; do not claim another agent is working.
+    report_status("mirza", "Yanıtı hazırlıyor")
+
     # Never send the static UI greeting as a model turn at the start.
     turns = []
     for m in payload.history[-12:]:
@@ -130,6 +136,62 @@ async def chat(payload: ChatRequest, request: Request, x_kero_access_code: str |
         raise HTTPException(status_code=502, detail="Yapay zekâ sağlayıcısına bağlanılamadı.") from exc
     except httpx.RequestError as exc:
         raise HTTPException(status_code=502, detail="Yapay zekâ ağına ulaşılamadı.") from exc
+
+
+
+@app.post("/api/chat/stream")
+async def chat_stream(
+    payload: ChatRequest,
+    request: Request,
+    x_kero_access_code: str | None = Header(default=None),
+):
+    """Stream actual agent transitions while preserving the original chat endpoint."""
+    # Preserve HTTP 401 semantics so the existing pilot-access dialog still works.
+    pilot_code = os.getenv("KERO_ACCESS_CODE", "").strip()
+    if pilot_code and (not x_kero_access_code or not hmac.compare_digest(x_kero_access_code, pilot_code)):
+        raise HTTPException(status_code=401, detail="KERO özel test erişim kodu gerekli.")
+
+    async def events():
+        queue: asyncio.Queue[dict] = asyncio.Queue()
+
+        async def produce():
+            token = register_status_sink(
+                lambda detail: queue.put_nowait({"event": "status", "data": detail})
+            )
+            try:
+                result = await chat(payload, request, x_kero_access_code)
+                queue.put_nowait({"event": "complete", "data": {"reply": result.reply}})
+            except HTTPException as exc:
+                queue.put_nowait({
+                    "event": "error",
+                    "data": {"detail": exc.detail, "status": exc.status_code},
+                })
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("kero_stream status=error")
+                queue.put_nowait({
+                    "event": "error",
+                    "data": {"detail": "KERO yanıtı tamamlayamadı.", "status": 502},
+                })
+            finally:
+                reset_status_sink(token)
+
+        producer = asyncio.create_task(produce())
+        try:
+            while True:
+                item = await queue.get()
+                yield f"event: {item['event']}\\ndata: {json.dumps(item['data'], ensure_ascii=False)}\\n\\n"
+                if item["event"] in ("complete", "error"):
+                    break
+        finally:
+            producer.cancel()
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 class RoutePreviewResponse(BaseModel):
