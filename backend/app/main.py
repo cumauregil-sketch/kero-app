@@ -16,6 +16,21 @@ from .planner import PlannerReplyError, create_plan
 from .orchestrator import maybe_delegate_planning
 from .agent_status import register_status_sink, reset_status_sink, report_status
 
+# This routes explicit requests for code text to a programming persona on Gemini.
+# It does not pretend to edit repositories or invoke a separately connected model.
+_CODING_HINTS = (
+    "kod yaz", "kodu yaz", "kodunu yaz", "kod üret", "kodu düzelt",
+    "kod düzelt", "kodlama yap", "script yaz", "python kod",
+    "javascript kod", "typescript kod", "react bileşen", "fonksiyon yaz",
+    "uygulamayı kodla", "kod örneği", "yazılım kodu",
+)
+
+
+def _is_code_request(message: str) -> bool:
+    message = message.casefold()
+    return any(hint in message for hint in _CODING_HINTS)
+
+
 PLANNING_DEADLINE_SECONDS = 24.0
 logger = logging.getLogger("uvicorn.error")
 
@@ -93,7 +108,8 @@ async def chat(payload: ChatRequest, request: Request, x_kero_access_code: str |
         # On specialist failure or deadline, use the existing Gemini chat path.
 
     # This is a real Gemini request; do not claim another agent is working.
-    report_status("mirza", "Yanıtı hazırlıyor")
+    coding_request = _is_code_request(payload.message)
+    report_status("alex", "Kod çözümünü hazırlıyor") if coding_request else report_status("mirza", "Yanıtı hazırlıyor")
 
     # Never send the static UI greeting as a model turn at the start.
     turns = []
@@ -109,7 +125,7 @@ async def chat(payload: ChatRequest, request: Request, x_kero_access_code: str |
             turns.append({"role": role, "parts": [{"text": m.content}]})
     turns.append({"role": "user", "parts": [{"text": payload.message}]})
     body = {
-        "systemInstruction": {"parts": [{"text": "Sen KERO'sun. Doğal, sıcak ve akıcı Türkçe konuş. Gerçek soruya yanıt ver; mekanik test mesajları üretme. Yapmadığın eylemleri yaptığını söyleme. Gerektiğinde bilmediğini belirt. Kullanıcı bir uygulama veya CRM adı verdi diye o üründe CRM modülü, API/XML, ilan portalı entegrasyonu, otomatik müşteri akışı veya görev şablonları zaten çalışıyor varsayma. Kullanıcının açıkça doğrulamadığı işlevleri mevcut özellik gibi anlatma. Önce varlığını doğrulamayı öner, varsa kullanımını açıkla, yoksa geliştirme önerisi olarak ayrı sun. İş planı KPI rakamlarını gerçek veri yoksa yalnızca örnek hedef veya varsayım olarak işaretle. Türkiye gayrimenkulü söz konusuysa ABD'ye özgü IDX/MLS altyapısını yerel standart gibi tanıtma, portal entegrasyon haklarını doğrulamadan kesin erişim iddia etme. Türkçe dışı karışık alfabe parçaları kullanma."}]},
+        "systemInstruction": {"parts": [{"text": "Sen KERO'sun. Programlama görevi verildiğinde Alex adlı yazılım mühendisliği rolünü üstlen; çalıştırmadığın kodu test ettim, dosyaları değiştirdim veya dağıttım deme. Doğal, sıcak ve akıcı Türkçe konuş. Gerçek soruya yanıt ver; mekanik test mesajları üretme. Yapmadığın eylemleri yaptığını söyleme. Gerektiğinde bilmediğini belirt. Kullanıcı bir uygulama veya CRM adı verdi diye o üründe CRM modülü, API/XML, ilan portalı entegrasyonu, otomatik müşteri akışı veya görev şablonları zaten çalışıyor varsayma. Kullanıcının açıkça doğrulamadığı işlevleri mevcut özellik gibi anlatma. Önce varlığını doğrulamayı öner, varsa kullanımını açıkla, yoksa geliştirme önerisi olarak ayrı sun. İş planı KPI rakamlarını gerçek veri yoksa yalnızca örnek hedef veya varsayım olarak işaretle. Türkiye gayrimenkulü söz konusuysa ABD'ye özgü IDX/MLS altyapısını yerel standart gibi tanıtma, portal entegrasyon haklarını doğrulamadan kesin erişim iddia etme. Türkçe dışı karışık alfabe parçaları kullanma."}]},
         "contents": turns,
         "generationConfig": {"temperature": 0.7, "maxOutputTokens": 2048},
     }
@@ -181,7 +197,7 @@ async def chat_stream(
         try:
             while True:
                 item = await queue.get()
-                yield f"event: {item['event']}\\ndata: {json.dumps(item['data'], ensure_ascii=False)}\\n\\n"
+                yield f"event: {item['event']}\ndata: {json.dumps(item['data'], ensure_ascii=False)}\n\n"
                 if item["event"] in ("complete", "error"):
                     break
         finally:
