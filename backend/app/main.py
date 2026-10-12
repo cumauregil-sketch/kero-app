@@ -1,4 +1,6 @@
+import asyncio
 import hmac
+import logging
 import os
 import time
 from collections import deque
@@ -10,6 +12,9 @@ from pydantic import BaseModel, Field
 from .task_router import InvalidRouteError, RoutePlan, propose_route
 from .planner import PlannerReplyError, create_plan
 from .orchestrator import maybe_delegate_planning
+
+PLANNING_DEADLINE_SECONDS = 24.0
+logger = logging.getLogger("uvicorn.error")
 
 app = FastAPI(title="KERO API", version="0.2.1")
 # Pilot-only per-IP throttling, per-worker. Replace with account quotas before public launch.
@@ -59,22 +64,30 @@ async def chat(payload: ChatRequest, request: Request, x_kero_access_code: str |
         and os.getenv("OPENROUTER_API_KEY", "").strip()
     ):
         try:
-            delegated = await maybe_delegate_planning(
-                payload.message,
-                gemini_key=api_key,
-                gemini_model=model,
-                openrouter_key=os.environ["OPENROUTER_API_KEY"].strip(),
-                history=[
-                    {"role": m.role, "content": m.content}
-                    for m in payload.history[-6:]
-                    if m.role in ("user", "assistant")
-                ],
+            delegated = await asyncio.wait_for(
+                maybe_delegate_planning(
+                    payload.message,
+                    gemini_key=api_key,
+                    gemini_model=model,
+                    openrouter_key=os.environ["OPENROUTER_API_KEY"].strip(),
+                    history=[
+                        {"role": m.role, "content": m.content}
+                        for m in payload.history[-6:]
+                        if m.role in ("user", "assistant")
+                    ],
+                ),
+                timeout=PLANNING_DEADLINE_SECONDS,
             )
             if delegated is not None:
                 return ChatResponse(reply=delegated)
+        except TimeoutError:
+            logger.warning(
+                "kero_specialist status=timeout budget_ms=%d fallback=gemini",
+                round(PLANNING_DEADLINE_SECONDS * 1000),
+            )
         except (httpx.HTTPError, ValueError):
-            # Fall through to the proven Gemini chat path.
-            pass
+            logger.warning("kero_specialist status=error fallback=gemini")
+        # On specialist failure or deadline, use the existing Gemini chat path.
 
     # Never send the static UI greeting as a model turn at the start.
     turns = []
