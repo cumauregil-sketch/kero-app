@@ -1,0 +1,30 @@
+name: KERO Beta frontend build
+
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/beta-frontend-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies without modifying repository
+        run: npm install --no-package-lock
+      - name: Build KERO dashboard
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build
