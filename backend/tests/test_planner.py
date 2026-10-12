@@ -62,7 +62,7 @@ class PlannerApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertLessEqual(MAX_OUTPUT_TOKENS, 1000)
         self.assertLessEqual(REQUEST_TIMEOUT_SECONDS, 35)
         prompt = requests[0]["messages"][0]["content"]
-        for word in ("Türkiye", "IDX/MLS", "KVKK", "Cans Atlas", "varsayım"):
+        for word in ("Türkiye", "IDX/MLS", "KVKK", "mevcut CRM", "varsayım"):
             self.assertIn(word, prompt)
         self.assertNotIn("tools", requests[0])
 
