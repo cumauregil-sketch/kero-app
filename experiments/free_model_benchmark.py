@@ -3,7 +3,7 @@
 Never calls a paid OpenRouter model. Only explicit :free IDs with zero listed pricing.
 Requires OPENROUTER_API_KEY and/or GEMINI_API_KEY.
 """
-import json, os, time, urllib.request, urllib.error, pathlib, datetime
+import json, os, time, urllib.request, urllib.error, pathlib, datetime, ast, re
 
 BASE = "https://openrouter.ai/api/v1"
 OPENROUTER_CANDIDATES = [
@@ -22,8 +22,8 @@ TASKS = {
     "coding": "Python ile verilen sayi listesinin medyanini bulan, bos listeyi ValueError ile reddeden fonksiyon ve 3 unittest yaz. Sadece kod ver.",
     "planning": "Bir emlak ofisinin mevcut yazilimi sadece portfoy kaydi ve personel hesabini destekliyor. CRM veya portal entegrasyonu uydurmadan, 3 maddelik 1 aylik uygulama plani yaz. Turkce yanit ver.",
 }
-TIMEOUT = int(os.getenv("KERO_BENCH_TIMEOUT", "25"))
-MAX_OUTPUT = 350
+TIMEOUT = int(os.getenv("KERO_BENCH_TIMEOUT", "35"))
+MAX_OUTPUT = 1100
 
 def request_json(url, payload=None, headers=None, timeout=10):
     data = None if payload is None else json.dumps(payload).encode("utf-8")
@@ -68,6 +68,26 @@ def summarize_openrouter(r):
 def summarize_gemini(r):
     return "".join(p.get("text", "") for c in r.get("candidates", []) for p in c.get("content", {}).get("parts", []))
 
+def assess_response(task, answer):
+    """Cheap deterministic checks, not a substitute for reviewing/running generated code."""
+    if not answer.strip():
+        return "empty_response"
+    if task == "coding":
+        code = answer.strip()
+        if code.startswith("```"):
+            code = re.sub(r"^\`\`\`(?:python)?\\s*", "", code)
+            code = re.sub(r"\\s*\`\`\`$", "", code)
+        try:
+            parsed = ast.parse(code)
+        except SyntaxError:
+            return "invalid_or_truncated_python"
+        functions = [n.name for n in ast.walk(parsed) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        return "basic_syntax_and_tests_present" if "median" in functions and sum(n.startswith("test_") for n in functions) >= 3 else "missing_required_tests"
+    # A suspicious mention can be a negation, so flag for review, not a definite fail.
+    if re.search(r"\\b(?:crm|portal)\\b", answer, flags=re.IGNORECASE):
+        return "review_required_mentions_unavailable_features"
+    return "manual_review_required"
+
 def main():
     output = {"timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(), "results": []}
     try:
@@ -97,12 +117,12 @@ def main():
                 response = run_openrouter(model, prompt) if provider == "openrouter" else run_gemini(prompt)
                 answer = summarize_openrouter(response) if provider == "openrouter" else summarize_gemini(response)
                 row.update({"success": bool(answer.strip()), "duration_seconds": round(time.perf_counter() - started, 3),
-                            "answer": answer[:2500]})
+                            "answer": answer[:9000], "quality_check": assess_response(label, answer)})
             except Exception as exc:
                 row.update({"success": False, "duration_seconds": round(time.perf_counter() - started, 3),
-                            "error_type": type(exc).__name__, "error": str(exc)[:180]})
+                            "error_type": type(exc).__name__, "error": str(exc)[:180], "quality_check": "not_applicable"})
             output["results"].append(row)
-            print(model, label, row["duration_seconds"], "OK" if row["success"] else "FAIL", flush=True)
+            print(model, label, row["duration_seconds"], "OK" if row["success"] else "FAIL", row.get("quality_check", ""), flush=True)
     pathlib.Path("free_model_benchmark_results.json").write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
     print("Results written to free_model_benchmark_results.json")
     if not candidates:
