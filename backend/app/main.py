@@ -8,6 +8,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from .task_router import InvalidRouteError, RoutePlan, propose_route
+from .planner import PlannerReplyError, create_plan
 
 app = FastAPI(title="KERO API", version="0.2.1")
 # Pilot-only per-IP throttling, per-worker. Replace with account quotas before public launch.
@@ -138,3 +139,55 @@ async def route_preview(
     except (httpx.RequestError, ValueError) as exc:
         raise HTTPException(status_code=502, detail="Görev yönlendirme bağlantısı başarısız.") from exc
     return RoutePreviewResponse(plan=plan)
+
+
+class PlannerPreviewResponse(BaseModel):
+    status: str = "preview"
+    model: str = "inclusionai/ling-3.1-flash:free"
+    execution: str = "text_plan_only"
+    plan: str
+
+
+@app.post("/api/planner-preview", response_model=PlannerPreviewResponse)
+async def planner_preview(
+    payload: ChatRequest,
+    request: Request,
+    x_kero_access_code: str | None = Header(default=None),
+):
+    """A separately gated planning test; does not alter the live chat flow."""
+    if os.getenv("KERO_ENABLE_PLANNER_PREVIEW", "false").lower() != "true":
+        raise HTTPException(status_code=404, detail="Planlama önizlemesi etkin değil.")
+    api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    access_code = os.getenv("KERO_ACCESS_CODE", "").strip()
+    if not api_key or not access_code:
+        raise HTTPException(status_code=503, detail="Planlama bağlantısı yapılandırılmadı.")
+    if not x_kero_access_code or not hmac.compare_digest(x_kero_access_code, access_code):
+        raise HTTPException(status_code=401, detail="KERO özel test erişim kodu gerekli.")
+
+    # Opt-in preview calls consume free quota; cap bursts conservatively.
+    client_ip = request.client.host if request.client else "unknown"
+    rate_key = "planner:" + client_ip
+    now = time.monotonic()
+    times = request_times.setdefault(rate_key, deque())
+    while times and now - times[0] > 60:
+        times.popleft()
+    if len(times) >= 3:
+        raise HTTPException(status_code=429, detail="Planlama deneme sınırına ulaşıldı.")
+    times.append(now)
+
+    try:
+        plan = await create_plan(payload.message, api_key=api_key)
+    except PlannerReplyError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        if status in (401, 403):
+            raise HTTPException(status_code=503, detail="OpenRouter API anahtarı geçersiz veya yetkisiz.") from exc
+        if status == 402:
+            raise HTTPException(status_code=503, detail="OpenRouter anahtarının harcama sınırı veya kredi ayarları isteği engelliyor.") from exc
+        if status == 429:
+            raise HTTPException(status_code=429, detail="OpenRouter ücretsiz kullanım kotası doldu.") from exc
+        raise HTTPException(status_code=502, detail="Ling planlama servisi yanıt vermedi.") from exc
+    except (httpx.RequestError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail="Planlama servisine erişilemedi.") from exc
+    return PlannerPreviewResponse(plan=plan)
