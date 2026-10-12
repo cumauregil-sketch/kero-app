@@ -64,6 +64,11 @@ async def chat(payload: ChatRequest, request: Request, x_kero_access_code: str |
                 gemini_key=api_key,
                 gemini_model=model,
                 openrouter_key=os.environ["OPENROUTER_API_KEY"].strip(),
+                history=[
+                    {"role": m.role, "content": m.content}
+                    for m in payload.history[-6:]
+                    if m.role in ("user", "assistant")
+                ],
             )
             if delegated is not None:
                 return ChatResponse(reply=delegated)
