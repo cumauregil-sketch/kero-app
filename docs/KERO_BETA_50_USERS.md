@@ -45,3 +45,24 @@ python -m unittest discover -s tests -p test_beta_accounts.py -v
 5. The owner can revoke an unused invitation. Expired/revoked invitations release their reserved beta slot.
 
 Never place invitation codes, API keys or passwords in GitHub commits or application logs. Until there is a durable database, verified invitations and secure login sessions, do not deploy public registration.
+
+## Turkish owner dashboard (staged, not deployed)
+
+- Frontend page: `/admin`. All copy and states are Turkish.
+- Owner can view registered users, pending invitations, available capacity, invitation status and expiry.
+- Create a seven-day invitation, select another validity duration, copy the once-shown invite code, and revoke an unused invitation.
+- API routes: `GET /api/beta/admin/status`, `GET /api/beta/admin/invitations`, `POST /api/beta/admin/invitations`, `POST /api/beta/admin/invitations/{id}/revoke`.
+- All calls use a distinct owner token in the `X-Kero-Beta-Admin-Token` header. Owner token is not stored in browser localStorage/sessionStorage and cannot be substituted by the existing shared pilot chat code.
+- The Next.js API route forwards only a fixed allowlist of backend routes.
+- These endpoints fail closed unless **ALL** of `KERO_BETA_ENABLED=true`, `KERO_BETA_STORAGE_READY=true`, `KERO_BETA_DB_PATH`, and a 32+ character `KERO_BETA_ADMIN_TOKEN` are correctly set.
+
+## Durable storage blocker
+
+Railway production currently has **no volume and no database**. SQLite is safe only when its path is a reliable attached persistent volume with an adequate backup process; an ephemeral container file will lose accounts during redeploys. Do not set `KERO_BETA_STORAGE_READY=true` without verifying the mount and backup. Railway free-tier resources have consumption-based limits: volume availability does not guarantee the existing services plus storage cost $0. No volume, database, or other billable service has been created for this feature.
+
+Even with the admin dashboard, invited accounts **cannot yet sign in through the public website**: user registration UI, owner delivery/identity checks, individual user sessions, password reset, login throttling and account-scoped messages still need implementation. Do not communicate beta invitations until those are complete.
+
+## Tests
+
+- `cd backend && python -m unittest discover -s tests -v` runs backend integration and invitation safety tests.
+- GitHub Actions tests the backend with the project’s pinned dependencies and runs a Next.js production build for the beta UI in the draft PR. No secrets required for tests.
