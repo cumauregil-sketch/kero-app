@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from .task_router import InvalidRouteError, RoutePlan, propose_route
 from .planner import PlannerReplyError, create_plan
+from .orchestrator import maybe_delegate_planning
 
 app = FastAPI(title="KERO API", version="0.2.1")
 # Pilot-only per-IP throttling, per-worker. Replace with account quotas before public launch.
@@ -51,6 +52,25 @@ async def chat(payload: ChatRequest, request: Request, x_kero_access_code: str |
     model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     if model not in ("gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.8-flash"):
         raise HTTPException(status_code=503, detail="Model yapılandırması geçersiz.")
+    # Specialist routing is opt-in and off in production until explicitly enabled.
+    # A failure in either provider must not break the existing Gemini conversation.
+    if (
+        os.getenv("KERO_ENABLE_MULTI_AI", "false").strip().lower() == "true"
+        and os.getenv("OPENROUTER_API_KEY", "").strip()
+    ):
+        try:
+            delegated = await maybe_delegate_planning(
+                payload.message,
+                gemini_key=api_key,
+                gemini_model=model,
+                openrouter_key=os.environ["OPENROUTER_API_KEY"].strip(),
+            )
+            if delegated is not None:
+                return ChatResponse(reply=delegated)
+        except (httpx.HTTPError, ValueError):
+            # Fall through to the proven Gemini chat path.
+            pass
+
     # Never send the static UI greeting as a model turn at the start.
     turns = []
     for m in payload.history[-12:]:
