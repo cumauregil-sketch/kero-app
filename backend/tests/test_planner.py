@@ -5,7 +5,7 @@ import unittest
 
 import httpx
 
-from app.planner import PLANNING_MODEL, PlannerReplyError, create_plan, parse_planner_reply
+from app.planner import PLANNING_MODEL, MAX_OUTPUT_TOKENS, REQUEST_TIMEOUT_SECONDS, SYSTEM_INSTRUCTION, PlannerReplyError, create_plan, parse_planner_reply
 
 
 class PlannerResponseTests(unittest.TestCase):
@@ -46,6 +46,35 @@ class PlannerApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(seen[0][2]["messages"][-1]["content"], "Bir proje planla")
         self.assertNotIn("tools", seen[0][2])
         self.assertNotIn("tool_choice", seen[0][2])
+
+    async def test_local_quality_policy_and_limited_output(self):
+        requests = []
+        def handler(req):
+            requests.append(json.loads(req.content))
+            return httpx.Response(200, json={
+                "model": PLANNING_MODEL,
+                "choices": [{"message": {"content": "Türkiye iş planı"}}],
+            })
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            reply = await create_plan("Emlak ofisi planı", api_key="test-key", client=client)
+        self.assertEqual(reply, "Türkiye iş planı")
+        self.assertEqual(requests[0]["max_tokens"], MAX_OUTPUT_TOKENS)
+        self.assertLessEqual(MAX_OUTPUT_TOKENS, 1000)
+        self.assertLessEqual(REQUEST_TIMEOUT_SECONDS, 35)
+        prompt = requests[0]["messages"][0]["content"]
+        for word in ("Türkiye", "IDX/MLS", "KVKK", "mevcut CRM", "varsayım"):
+            self.assertIn(word, prompt)
+        self.assertNotIn("tools", requests[0])
+
+    async def test_non_free_returned_model_is_rejected(self):
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda req: httpx.Response(200, json={
+                "model": "nvidia/nemotron-3-ultra-550b-a55b",
+                "choices": [{"message": {"content": "Paid reply"}}],
+            }))
+        ) as client:
+            with self.assertRaises(PlannerReplyError):
+                await create_plan("Plan hazırla", api_key="test-key", client=client)
 
     async def test_past_messages_are_sent_with_bounded_history(self):
         received = []
