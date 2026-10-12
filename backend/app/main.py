@@ -7,6 +7,7 @@ import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from .task_router import InvalidRouteError, RoutePlan, propose_route
 
 app = FastAPI(title="KERO API", version="0.2.1")
 # Pilot-only per-IP throttling, per-worker. Replace with account quotas before public launch.
@@ -90,3 +91,50 @@ async def chat(payload: ChatRequest, request: Request, x_kero_access_code: str |
         raise HTTPException(status_code=502, detail="Yapay zekâ sağlayıcısına bağlanılamadı.") from exc
     except httpx.RequestError as exc:
         raise HTTPException(status_code=502, detail="Yapay zekâ ağına ulaşılamadı.") from exc
+
+
+class RoutePreviewResponse(BaseModel):
+    status: str = "preview"
+    execution: str = "not_started"
+    plan: RoutePlan
+
+
+@app.post("/api/route-preview", response_model=RoutePreviewResponse)
+async def route_preview(
+    payload: ChatRequest,
+    request: Request,
+    x_kero_access_code: str | None = Header(default=None),
+):
+    """Plan a route without invoking specialists, editing files or deploying code."""
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    pilot_code = os.getenv("KERO_ACCESS_CODE", "").strip()
+    if not api_key or not pilot_code:
+        raise HTTPException(status_code=503, detail="Görev yöneticisi henüz yapılandırılmadı.")
+    if not x_kero_access_code or not hmac.compare_digest(x_kero_access_code, pilot_code):
+        raise HTTPException(status_code=401, detail="KERO özel test erişim kodu gerekli.")
+
+    # Separate, conservative throttle for the opt-in preview endpoint.
+    client_ip = request.client.host if request.client else "unknown"
+    rate_key = "route:" + client_ip
+    now = time.monotonic()
+    times = request_times.setdefault(rate_key, deque())
+    while times and now - times[0] > 60:
+        times.popleft()
+    if len(times) >= 10:
+        raise HTTPException(status_code=429, detail="Görev planı istek sınırına ulaşıldı.")
+    times.append(now)
+
+    model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+    if model not in ("gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.8-flash"):
+        raise HTTPException(status_code=503, detail="Model yapılandırması geçersiz.")
+    try:
+        plan = await propose_route(payload.message, api_key=api_key, model=model)
+    except InvalidRouteError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 429:
+            raise HTTPException(status_code=429, detail="Yapay zekâ kullanım kotası doldu.") from exc
+        raise HTTPException(status_code=502, detail="Gemini görev planı üretemedi.") from exc
+    except (httpx.RequestError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail="Görev yönlendirme bağlantısı başarısız.") from exc
+    return RoutePreviewResponse(plan=plan)
