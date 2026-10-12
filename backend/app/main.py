@@ -143,7 +143,7 @@ async def route_preview(
 
 class PlannerPreviewResponse(BaseModel):
     status: str = "preview"
-    model: str = "inclusionai/ling-3.1-flash:free"
+    model: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
     execution: str = "text_plan_only"
     plan: str
 
@@ -187,7 +187,7 @@ async def planner_preview(
             raise HTTPException(status_code=503, detail="OpenRouter anahtarının harcama sınırı veya kredi ayarları isteği engelliyor.") from exc
         if status == 429:
             raise HTTPException(status_code=429, detail="OpenRouter ücretsiz kullanım kotası doldu.") from exc
-        raise HTTPException(status_code=502, detail="Ling planlama servisi yanıt vermedi.") from exc
+        raise HTTPException(status_code=502, detail="Ücretsiz planlama servisi yanıt vermedi.") from exc
     except (httpx.RequestError, ValueError) as exc:
         raise HTTPException(status_code=502, detail="Planlama servisine erişilemedi.") from exc
     return PlannerPreviewResponse(plan=plan)
