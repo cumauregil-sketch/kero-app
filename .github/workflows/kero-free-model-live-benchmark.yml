@@ -1,0 +1,55 @@
+name: KERO free models live benchmark
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  free-models:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Refuse to run without OpenRouter secret
+        run: |
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "::error::GitHub Actions secret OPENROUTER_API_KEY is not available."
+            exit 1
+          fi
+
+      - name: Benchmark only currently verified zero-price free model IDs
+        env:
+          KERO_BENCH_TIMEOUT: "25"
+        run: python experiments/free_model_benchmark.py
+
+      - name: Fail if no model requests were made
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("free_model_benchmark_results.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          if not data.get("results"):
+              raise SystemExit("No verified free models were tested: no latency comparison is possible.")
+          print("Model test attempts:", len(data["results"]))
+          PY
+
+      - name: Save model names, latency and anonymized test outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kero-free-model-benchmark-results
+          path: free_model_benchmark_results.json
+          if-no-files-found: warn
+          retention-days: 7
