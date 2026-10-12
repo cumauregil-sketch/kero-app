@@ -25,8 +25,6 @@ export default function Home() {
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [voiceAvailable, setVoiceAvailable] = useState(true);
-  const [ownVoice, setOwnVoice] = useState(false);
-  const [ownVoiceNotice, setOwnVoiceNotice] = useState('');
   const [dictating, setDictating] = useState(false);
   const [dictationNotice, setDictationNotice] = useState('');
   const [accessPrompt, setAccessPrompt] = useState(false);
@@ -40,9 +38,6 @@ export default function Home() {
   const accessCodeRef = useRef('');
   const speakingRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const ttsAbortRef = useRef<AbortController | null>(null);
-  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
-  const ttsObjectUrlRef = useRef<string | null>(null);
   const dictationRef = useRef<any>(null);
   const dictationWantedRef = useRef(false);
   const dictationSessionRef = useRef(0);
@@ -61,7 +56,6 @@ export default function Home() {
       }
     } catch { /* Gracefully fall back when saved chat or storage is unavailable. */ }
     try { accessCodeRef.current = sessionStorage.getItem('kero-pilot-code') || ''; } catch { /* optional storage */ }
-    try { setOwnVoice(localStorage.getItem('kero-own-voice-v1') === 'yes'); } catch { /* optional storage */ }
     setHydrated(true);
     const browser = window as any;
     setVoiceAvailable(Boolean(browser.SpeechRecognition || browser.webkitSpeechRecognition));
@@ -74,9 +68,6 @@ export default function Home() {
       if (dictationRestartRef.current) clearTimeout(dictationRestartRef.current);
       controllerRef.current?.abort();
       window.speechSynthesis?.cancel();
-      ttsAbortRef.current?.abort();
-      ttsAudioRef.current?.pause();
-      if (ttsObjectUrlRef.current) URL.revokeObjectURL(ttsObjectUrlRef.current);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
@@ -206,12 +197,6 @@ export default function Home() {
     recognitionRef.current = null;
     controllerRef.current?.abort();
     window.speechSynthesis?.cancel();
-    ttsAbortRef.current?.abort();
-    ttsAbortRef.current = null;
-    ttsAudioRef.current?.pause();
-    ttsAudioRef.current = null;
-    if (ttsObjectUrlRef.current) URL.revokeObjectURL(ttsObjectUrlRef.current);
-    ttsObjectUrlRef.current = null;
     busyRef.current = false;
     setBusy(false);
   }
@@ -280,69 +265,9 @@ export default function Home() {
     window.speechSynthesis.speak(utterance);
   }
 
-  async function speakWithOwnVoice(text: string) {
-    const controller = new AbortController();
-    ttsAbortRef.current = controller;
-    let hasFallback = false;
-    const releaseAudio = () => {
-      ttsAudioRef.current?.pause();
-      ttsAudioRef.current = null;
-      if (ttsObjectUrlRef.current) URL.revokeObjectURL(ttsObjectUrlRef.current);
-      ttsObjectUrlRef.current = null;
-    };
-    const fallback = () => {
-      if (hasFallback || controller.signal.aborted || !activeRef.current) return;
-      hasFallback = true;
-      releaseAudio();
-      setOwnVoiceNotice('Yerel ses motoruna ulaşılamadı. Tarayıcı sesiyle devam ediliyor.');
-      speakBrowser(text);
-    };
-    try {
-      // Only enabled on this device by its owner. Never upload reference audio to the public cloud.
-      const response = await fetch('http://127.0.0.1:8765/speak', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({text}),
-        signal: controller.signal
-      });
-      if (!response.ok) throw new Error('Yerel ses motoru yanıt vermedi.');
-      const audioBlob = await response.blob();
-      if (!activeRef.current || controller.signal.aborted) return;
-      releaseAudio();
-      const url = URL.createObjectURL(audioBlob);
-      ttsObjectUrlRef.current = url;
-      const audio = new Audio(url);
-      ttsAudioRef.current = audio;
-      audio.onended = () => { releaseAudio(); finishedSpeaking(); };
-      audio.onerror = fallback;
-      await audio.play();
-      if (activeRef.current) {
-        setOwnVoiceNotice('');
-        setVoiceState('speaking');
-      }
-    } catch {
-      fallback();
-    } finally {
-      if (ttsAbortRef.current === controller) ttsAbortRef.current = null;
-    }
-  }
-
   function speak(text: string) {
     if (!activeRef.current) return;
-    if (ownVoice) {
-      speakingRef.current = true;
-      setVoiceState('thinking');
-      void speakWithOwnVoice(text);
-    } else {
-      speakBrowser(text);
-    }
-  }
-
-  function toggleOwnVoice() {
-    const next = !ownVoice;
-    setOwnVoice(next);
-    setOwnVoiceNotice(next ? 'Kendi sesin seçildi. Bilgisayarında KERO ses motoru açık olmalı.' : 'Tarayıcı sesine geçildi.');
-    try { localStorage.setItem('kero-own-voice-v1', next ? 'yes' : 'no'); } catch { /* optional storage */ }
+    speakBrowser(text);
   }
 
   function saveAccess(event: FormEvent<HTMLFormElement>) {
@@ -472,9 +397,7 @@ export default function Home() {
             <div className="inlineVoiceText">
               <strong aria-live="polite">{voiceState==='listening'?'Seni dinliyorum':voiceState==='thinking'?'KERO düşünüyor':voiceState==='speaking'?'KERO konuşuyor':'Konuşabilirsin'}</strong>
               <span className={voiceTranscript?'voiceInterim':'voicePrompt'}>{voiceTranscript || 'Konuşman anlık burada, tamamlanınca sohbet içinde görünecek.'}</span>
-              {ownVoiceNotice && <span className="ownVoiceNotice" role="status">{ownVoiceNotice}</span>}
             </div>
-            <button type="button" className={'ownVoiceToggle'+(ownVoice?' active':'')} onClick={toggleOwnVoice} aria-pressed={ownVoice} title="Kendi sesinle konuş. Yerel ses motoru bu bilgisayarda açık olmalıdır.">{ownVoice?'Kendi sesim ✓':'Kendi sesim'}</button>
             <button type="button" className="inlineVoiceEnd" onClick={endVoice} aria-label="Sesli görüşmeyi bitir" title="Sesli görüşmeyi bitir">✕</button>
           </div>}
           <form className="composer" onSubmit={submit}>
